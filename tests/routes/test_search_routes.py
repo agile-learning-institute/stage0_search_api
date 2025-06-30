@@ -88,46 +88,14 @@ class TestSearchRoutes(unittest.TestCase):
         """Test search endpoint when service raises exception."""
         # Mock service to raise exception
         mock_search_documents.side_effect = Exception("Service error")
-    
+        
         response = self.client.get('/api/search?search=test')
-    
+        
         # Verify error response
         self.assertEqual(response.status_code, 500)
         data = json.loads(response.data)
         self.assertIsInstance(data, list)
         self.assertEqual(data[0]["error_id"], "SEARCH-001")
-        self.assertIn("Service error", data[0]["message"])
-    
-    @patch('src.services.search_services.SearchServices.get_search_stats')
-    def test_get_search_stats(self, mock_get_search_stats):
-        """Test search stats endpoint."""
-        # Mock the service response
-        mock_stats = {"search_index": "stage0_search", "status": "active"}
-        mock_get_search_stats.return_value = mock_stats
-        
-        response = self.client.get('/api/search/stats')
-        
-        # Verify response
-        self.assertEqual(response.status_code, 200)
-        data = json.loads(response.data)
-        self.assertEqual(data, mock_stats)
-        
-        # Verify service was called
-        mock_get_search_stats.assert_called_once()
-    
-    @patch('src.services.search_services.SearchServices.get_search_stats')
-    def test_get_search_stats_service_error(self, mock_get_search_stats):
-        """Test search stats endpoint when service raises exception."""
-        # Mock service to raise exception
-        mock_get_search_stats.side_effect = Exception("Service error")
-    
-        response = self.client.get('/api/search/stats')
-    
-        # Verify error response
-        self.assertEqual(response.status_code, 500)
-        data = json.loads(response.data)
-        self.assertIsInstance(data, list)
-        self.assertEqual(data[0]["error_id"], "SEARCH-002")
         self.assertIn("Service error", data[0]["message"])
 
 if __name__ == '__main__':

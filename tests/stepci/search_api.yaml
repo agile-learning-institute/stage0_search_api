@@ -55,16 +55,6 @@ tests:
           status: 400
           jsonpath:
             "$.error": "string"
-      
-      - name: Search stats
-        http:
-          url: http://localhost:8083/api/search/stats
-          method: GET
-        check:
-          status: 200
-          jsonpath:
-            "$.search_index": "string"
-            "$.status": "string"
   
   - name: Sync Endpoints
     steps:
@@ -162,13 +152,9 @@ tests:
   
   - name: Root Endpoint
     steps:
-      - name: Check root endpoint
+      - name: Check root endpoint returns 404
         http:
           url: http://localhost:8083/
           method: GET
         check:
-          status: 200
-          jsonpath:
-            "$.service": "stage0_search_api"
-            "$.version": "string"
-            "$.endpoints": "object" 
+          status: 404 

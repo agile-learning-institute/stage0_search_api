@@ -88,45 +88,6 @@ paths:
                       type: string
                       example: "An error occurred during search"
 
-  /api/search/stats:
-    get:
-      summary: Get search statistics
-      description: Retrieve search index statistics and status information
-      tags:
-        - Search
-      responses:
-        '200':
-          description: Search statistics
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  search_index:
-                    type: string
-                    example: "stage0_search"
-                  status:
-                    type: string
-                    example: "active"
-        '500':
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  type: object
-                  properties:
-                    error:
-                      type: string
-                      example: "Failed to get search stats"
-                    error_id:
-                      type: string
-                      example: "SEARCH-002"
-                    message:
-                      type: string
-                      example: "An error occurred retrieving stats"
-
   /api/sync:
     get:
       summary: Get sync history
@@ -152,26 +113,7 @@ paths:
               schema:
                 type: array
                 items:
-                  type: object
-                  properties:
-                    id:
-                      type: string
-                      example: "sync_123"
-                    start_time:
-                      type: string
-                      format: date-time
-                      example: "2024-01-01T10:00:00Z"
-                    collections:
-                      type: array
-                      items:
-                        type: object
-                        properties:
-                          name:
-                            type: string
-                            example: "bots"
-                          count:
-                            type: integer
-                            example: 150
+                  $ref: '#/components/schemas/sync_result'
         '500':
           description: Internal server error
           content:
@@ -202,41 +144,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  sync_id:
-                    type: string
-                    example: "sync_123"
-                  start_time:
-                    type: string
-                    format: date-time
-                    example: "2024-01-01T10:00:00Z"
-                  end_time:
-                    type: string
-                    format: date-time
-                    example: "2024-01-01T10:05:00Z"
-                  duration_seconds:
-                    type: number
-                    format: float
-                    example: 300.5
-                  total_synced:
-                    type: integer
-                    example: 500
-                  collections:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        name:
-                          type: string
-                          example: "bots"
-                        count:
-                          type: integer
-                          example: 500
-                        end_time:
-                          type: string
-                          format: date-time
-                          example: "2024-01-01T10:05:00Z"
+                $ref: '#/components/schemas/sync_result'
         '500':
           description: Internal server error
           content:
@@ -346,33 +254,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  sync_id:
-                    type: string
-                    example: "sync_123"
-                  collection:
-                    type: string
-                    example: "bots"
-                  index_as:
-                    type: string
-                    nullable: true
-                    example: "students"
-                  start_time:
-                    type: string
-                    format: date-time
-                    example: "2024-01-01T10:00:00Z"
-                  end_time:
-                    type: string
-                    format: date-time
-                    example: "2024-01-01T10:02:00Z"
-                  duration_seconds:
-                    type: number
-                    format: float
-                    example: 120.5
-                  total_synced:
-                    type: integer
-                    example: 150
+                $ref: '#/components/schemas/sync_result'
         '400':
           description: Bad request - invalid collection name
           content:
@@ -438,35 +320,119 @@ paths:
                       type: string
                       example: "An error occurred retrieving periodicity"
 
-  /api/config:
+  /api/health:
     get:
-      summary: Get configuration
-      description: Retrieve current API configuration
-      tags:
-        - Configuration
+      summary: Health check endpoint
+      description: Returns Prometheus-formatted metrics for monitoring
+      operationId: health_check
       responses:
         '200':
-          description: Configuration data
+          description: Prometheus metrics
+          content:
+            text/plain:
+              schema:
+                type: string
+        '500':
+          description: Processing error
+
+  /api/config:
+    get:
+      summary: Get current configuration
+      operationId: get_config
+      responses:
+        '200':
+          description: Current configuration
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: true
+                $ref: '#/components/schemas/config'
+        '500':
+          description: Processing error
 
 components:
   schemas:
-    Error:
+    sync_result:
+      description: Result of a sync operation
       type: object
       properties:
-        error:
+        sync_id:
           type: string
-          description: Error message
-        error_id:
+          example: "sync_123"
+        start_time:
           type: string
-          description: Unique error identifier
-        message:
+          format: date-time
+          example: "2024-01-01T10:00:00Z"
+        end_time:
           type: string
-          description: Detailed error message
+          format: date-time
+          example: "2024-01-01T10:05:00Z"
+        duration_seconds:
+          type: number
+          format: float
+          example: 300.5
+        total_synced:
+          type: integer
+          example: 500
+        collections:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+                example: "bots"
+              count:
+                type: integer
+                example: 500
+              end_time:
+                type: string
+                format: date-time
+                example: "2024-01-01T10:05:00Z"
+        collection:
+          type: string
+          example: "bots"
+          description: Collection name (for single collection sync)
+        index_as:
+          type: string
+          nullable: true
+          example: "students"
+          description: Index collection name (for polymorphic patterns)
+
+    config:
+      type: object
+      properties:
+        config_items:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                description: Configuration item name
+                type: string
+              value:
+                description: Configuration value (or "secret" for sensitive values)
+                type: string
+              from:
+                description: Source of the configuration value
+                type: string
+                enum:
+                  - default
+                  - file
+                  - environment
+        token:
+          type: object
+          properties:
+            user_id:
+              description: Logged in user_id value
+              type: string
+            from_ip:
+              description: User's current IP address
+              type: string
+            roles:
+              description: User's RBAC roles
+              type: array
+              items:
+                type: string
 
   securitySchemes:
     ApiKeyAuth:

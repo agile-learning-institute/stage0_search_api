@@ -43,23 +43,4 @@ def search_documents():
             "error": "Failed to perform search",
             "error_id": "SEARCH-001",
             "message": str(e)
-        }]), 500
-
-@search_bp.route('/search/stats', methods=['GET'])
-def get_search_stats():
-    """Get search statistics."""
-    token = create_flask_token()
-    breadcrumb = create_flask_breadcrumb(token)
-    
-    try:
-        stats = SearchServices.get_search_stats()
-        logger.info(f"{breadcrumb} Successfully retrieved search stats")
-        return jsonify(stats)
-        
-    except Exception as e:
-        logger.error(f"{breadcrumb} Unexpected error getting search stats: {str(e)}")
-        return jsonify([{
-            "error": "Failed to get search stats",
-            "error_id": "SEARCH-002",
-            "message": str(e)
         }]), 500 

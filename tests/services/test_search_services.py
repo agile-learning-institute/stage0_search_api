@@ -88,34 +88,6 @@ class TestSearchServices(unittest.TestCase):
         
         # Verify
         self.assertEqual(str(context.exception), "Elastic error")
-    
-    @patch('src.services.search_services.ElasticUtils')
-    def test_get_search_stats(self, mock_elastic_utils):
-        """Test get search stats."""
-        # Mock elastic utils
-        mock_elastic_utils.return_value.search_index = "test_index"
-        
-        # Test
-        result = SearchServices.get_search_stats()
-        
-        # Verify
-        self.assertIn("search_index", result)
-        self.assertEqual(result["search_index"], "test_index")
-        self.assertIn("status", result)
-        self.assertEqual(result["status"], "active")
-    
-    @patch('src.services.search_services.ElasticUtils')
-    def test_get_search_stats_error(self, mock_elastic_utils):
-        """Test get search stats when error occurs."""
-        # Mock elastic utils to raise exception on search_index access
-        type(mock_elastic_utils.return_value).search_index = property(lambda self: (_ for _ in ()).throw(Exception("Elastic error")))
-        
-        # Test
-        result = SearchServices.get_search_stats()
-        
-        # Verify
-        self.assertIn("error", result)
-        self.assertIn("Elastic error", result["error"])
 
 if __name__ == '__main__':
     unittest.main() 

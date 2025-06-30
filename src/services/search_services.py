@@ -40,23 +40,6 @@ class SearchServices:
             logger.error(f"Error in search_documents: {e}")
             raise
     
-    @staticmethod
-    def get_search_stats() -> Dict:
-        """
-        Get search index statistics.
-        
-        Returns:
-            Dict containing search index statistics.
-        """
-        try:
-            stats = SearchServices._build_search_stats()
-            logger.info("Successfully retrieved search stats")
-            return stats
-            
-        except Exception as e:
-            logger.error(f"Error getting search stats: {e}")
-            return {"error": str(e)}
-    
     # Private helper methods
     
     @staticmethod
@@ -107,18 +90,4 @@ class SearchServices:
             List of search results.
         """
         elastic_utils = ElasticUtils()
-        return elastic_utils.search_documents(query=query, search_text=search_text)
-    
-    @staticmethod
-    def _build_search_stats() -> Dict:
-        """
-        Build search statistics dictionary.
-        
-        Returns:
-            Dict containing search index statistics.
-        """
-        elastic_utils = ElasticUtils()
-        return {
-            "search_index": elastic_utils.search_index,
-            "status": "active"
-        } 
+        return elastic_utils.search_documents(query=query, search_text=search_text) 
