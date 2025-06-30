@@ -77,7 +77,7 @@ class TestSyncRoutes(unittest.TestCase):
     def test_sync_all_collections(self, mock_sync_all_collections):
         """Test sync all collections endpoint."""
         # Mock the service response
-        mock_result = {"id": "sync_123", "start_time": "2024-01-01T10:00:00Z"}
+        mock_result = {"id": "sync_123", "start_time": "2024-01-01T10:00:00Z", "run": {"test": "breadcrumb"}}
         mock_sync_all_collections.return_value = mock_result
         
         response = self.client.post('/api/sync')
@@ -190,7 +190,7 @@ class TestSyncRoutes(unittest.TestCase):
     def test_sync_collection(self, mock_sync_collection):
         """Test sync specific collection endpoint."""
         # Mock the service response
-        mock_result = {"id": "sync_123", "collection_name": "bots"}
+        mock_result = {"id": "sync_123", "collection_name": "bots", "run": {"test": "breadcrumb"}}
         mock_sync_collection.return_value = mock_result
         
         response = self.client.patch('/api/sync/bots')
@@ -226,7 +226,7 @@ class TestSyncRoutes(unittest.TestCase):
     def test_sync_collection_with_index_as(self, mock_sync_collection):
         """Test sync specific collection endpoint with index_as parameter."""
         # Mock the service response
-        mock_result = {"id": "sync_123", "collection_name": "bots"}
+        mock_result = {"id": "sync_123", "collection_name": "bots", "run": {"test": "breadcrumb"}}
         mock_sync_collection.return_value = mock_result
         
         response = self.client.patch('/api/sync/bots?index_as=polymorphic')

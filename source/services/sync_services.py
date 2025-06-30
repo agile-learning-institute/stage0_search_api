@@ -87,7 +87,7 @@ class SyncServices:
             # Save sync history and return results
             SyncServices._save_sync_history(sync_id, start_time, collection_results)
             result = SyncServices._build_sync_result(
-                sync_id, start_time, total_synced, collection_results
+                sync_id, start_time, total_synced, collection_results, breadcrumb
             )
             
             end_time = datetime.now()
@@ -138,7 +138,7 @@ class SyncServices:
             # Save sync history and return results
             SyncServices._save_sync_history(sync_id, start_time, [collection_result])
             result = SyncServices._build_collection_sync_result(
-                sync_id, collection_name, index_as, start_time, collection_result["count"]
+                sync_id, collection_name, index_as, start_time, collection_result["count"], breadcrumb
             )
             
             logger.info(f"{breadcrumb} Collection sync completed: {collection_result['count']} documents")
@@ -322,14 +322,20 @@ class SyncServices:
         sync_id: str, 
         start_time: datetime, 
         total_synced: int, 
-        collection_results: List[Dict]
+        collection_results: List[Dict],
+        breadcrumb: Optional[Dict] = None
     ) -> Dict:
         """Build the final sync result dictionary matching README specification."""
-        return {
+        result = {
             "id": sync_id,
             "start_time": start_time.isoformat(),
             "collections": collection_results
         }
+        
+        if breadcrumb:
+            result["run"] = breadcrumb
+            
+        return result
     
     @staticmethod
     def _build_collection_sync_result(
@@ -337,7 +343,8 @@ class SyncServices:
         collection_name: str, 
         index_as: Optional[str], 
         start_time: datetime, 
-        total_synced: int
+        total_synced: int,
+        breadcrumb: Optional[Dict] = None
     ) -> Dict:
         """Build the final collection sync result dictionary matching README specification."""
         # For single collection sync, return the same structure as multi-collection
@@ -347,8 +354,13 @@ class SyncServices:
             "end_time": datetime.now().isoformat()
         }
         
-        return {
+        result = {
             "id": sync_id,
             "start_time": start_time.isoformat(),
             "collections": [collection_result]
-        } 
+        }
+        
+        if breadcrumb:
+            result["run"] = breadcrumb
+            
+        return result 
