@@ -11,21 +11,19 @@ search_bp = Blueprint('search', __name__)
 @search_bp.route('/search', methods=['GET'])
 def search_documents():
     """Search documents using query or search parameters."""
-    try:
-        token = create_flask_token()
-        breadcrumb = create_flask_breadcrumb(token)
-        # Get query parameters
-        query_param = request.args.get('query')
-        search_param = request.args.get('search')
-        # Perform search
-        results = SearchServices.search_documents(
-            query_param=query_param,
-            search_param=search_param,
-            token=token,
-            breadcrumb=breadcrumb
-        )
-        logger.info(f"{breadcrumb} Successfully performed search with {len(results)} results")
-        return jsonify(results)
-    except Exception as e:
-        logger.error(f"Search error: {str(e)}")
-        return jsonify({}), 500 
+    token = create_flask_token()
+    breadcrumb = create_flask_breadcrumb(token)
+    
+    # Get query parameters
+    query_param = request.args.get('query')
+    search_param = request.args.get('search')
+    
+    # Perform search
+    results = SearchServices.search_documents(
+        query_param=query_param,
+        search_param=search_param,
+        token=token,
+        breadcrumb=breadcrumb
+    )
+    logger.info(f"{breadcrumb} Successfully performed search with {len(results)} results")
+    return jsonify(results) 

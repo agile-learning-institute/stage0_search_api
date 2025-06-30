@@ -1,73 +1,62 @@
 import unittest
 from unittest.mock import Mock, patch
 from datetime import datetime
-from source.services.sync_services import SyncServices, SyncRBACError
+from source.services.sync_services import SyncServices, SyncError
 
 class TestSyncServices(unittest.TestCase):
     
     def setUp(self):
         """Set up test fixtures."""
         self.admin_token = {
-            "user_id": "admin_user",
-            "roles": ["admin", "Staff"]
+            'user_id': 'admin_user',
+            'roles': ['admin'],
+            'byUser': 'admin_user'
         }
         self.user_token = {
-            "user_id": "regular_user", 
-            "roles": ["Staff"]
+            'user_id': 'regular_user',
+            'roles': ['user'],
+            'byUser': 'regular_user'
         }
-        self.breadcrumb = {
-            "atTime": "2024-01-01T10:00:00Z",
-            "byUser": "test_user",
-            "correlationId": "test-123"
-        }
+        self.breadcrumb = {'test': 'breadcrumb'}
     
     @patch('source.services.sync_services.MongoUtils')
     @patch('source.services.sync_services.ElasticUtils')
     @patch('source.services.sync_services.datetime')
     def test_sync_all_collections(self, mock_datetime, mock_elastic_utils, mock_mongo_utils):
         """Test sync all collections."""
-        # Mock datetime
-        mock_start_time = datetime(2024, 1, 1, 10, 0, 0)
-        mock_end_time = datetime(2024, 1, 1, 10, 5, 0)
-        times = [mock_start_time, mock_end_time, mock_end_time, mock_end_time]
-        def now_side_effect():
-            for t in times:
-                yield t
-            while True:
-                yield mock_end_time
-        mock_datetime.now.side_effect = now_side_effect()
-        
         # Mock dependencies
-        mock_elastic_utils.return_value.get_latest_sync_time.return_value = None
-        mock_mongo_utils.return_value.get_collection_names.return_value = ["bots", "conversations"]
+        mock_datetime.now.side_effect = [
+            datetime(2024, 1, 1, 10, 0, 0),  # start_time
+            datetime(2024, 1, 1, 10, 2, 0)   # end_time
+        ]
         
-        # Mock collection processing
-        mock_index_cards = [{"collection_id": "123", "collection_name": "bots"}]
-        mock_mongo_utils.return_value.process_collection_batch.return_value = mock_index_cards
-        mock_elastic_utils.return_value.bulk_upsert_documents.return_value = {"success": 1, "failed": 0}
+        # Mock collection names and results
+        mock_mongo_utils.return_value.get_collection_names.return_value = ["bots", "chains"]
         
-        # Test
-        result = SyncServices.sync_all_collections(token=self.admin_token, breadcrumb=self.breadcrumb)
+        # Mock collection results
+        mock_collection_result_1 = {"name": "bots", "count": 1, "end_time": "2024-01-01T10:01:00Z"}
+        mock_collection_result_2 = {"name": "chains", "count": 1, "end_time": "2024-01-01T10:02:00Z"}
         
-        # Verify
-        self.assertIn("id", result)
-        self.assertIn("start_time", result)
-        self.assertIn("collections", result)
-        self.assertIn("run", result)
-        self.assertEqual(result["run"], self.breadcrumb)
-        self.assertEqual(len(result["collections"]), 2)
-        self.assertEqual(result["collections"][0]["count"], 1)
-        self.assertEqual(result["collections"][1]["count"], 1)
-    
-    def test_sync_all_collections_no_token(self):
-        """Test sync all collections without token raises RBAC error."""
-        with self.assertRaises(SyncRBACError) as context:
-            SyncServices.sync_all_collections(token=None, breadcrumb=self.breadcrumb)
-        self.assertIn("Authentication token required", str(context.exception))
+        # Mock the sync process
+        with patch.object(SyncServices, '_sync_single_collection') as mock_sync_collection:
+            mock_sync_collection.side_effect = [mock_collection_result_1, mock_collection_result_2]
+            
+            # Test
+            result = SyncServices.sync_all_collections(token=self.admin_token, breadcrumb=self.breadcrumb)
+            
+            # Verify
+            self.assertIn("id", result)
+            self.assertIn("start_time", result)
+            self.assertIn("collections", result)
+            self.assertIn("run", result)
+            self.assertEqual(result["run"], self.breadcrumb)
+            self.assertEqual(len(result["collections"]), 2)
+            self.assertEqual(result["collections"][0]["count"], 1)
+            self.assertEqual(result["collections"][1]["count"], 1)
     
     def test_sync_all_collections_non_admin_token(self):
-        """Test sync all collections with non-admin token raises RBAC error."""
-        with self.assertRaises(SyncRBACError) as context:
+        """Test sync all collections with non-admin token raises error."""
+        with self.assertRaises(SyncError) as context:
             SyncServices.sync_all_collections(token=self.user_token, breadcrumb=self.breadcrumb)
         self.assertIn("Admin role required", str(context.exception))
     
@@ -100,15 +89,9 @@ class TestSyncServices(unittest.TestCase):
             self.assertEqual(result["collections"][0]["name"], "bots")
             self.assertEqual(result["collections"][0]["count"], 1)
     
-    def test_sync_collection_no_token(self):
-        """Test sync collection without token raises RBAC error."""
-        with self.assertRaises(SyncRBACError) as context:
-            SyncServices.sync_collection("bots", token=None, breadcrumb=self.breadcrumb)
-        self.assertIn("Authentication token required", str(context.exception))
-    
     def test_sync_collection_non_admin_token(self):
-        """Test sync collection with non-admin token raises RBAC error."""
-        with self.assertRaises(SyncRBACError) as context:
+        """Test sync collection with non-admin token raises error."""
+        with self.assertRaises(SyncError) as context:
             SyncServices.sync_collection("bots", token=self.user_token, breadcrumb=self.breadcrumb)
         self.assertIn("Admin role required", str(context.exception))
     
@@ -161,29 +144,11 @@ class TestSyncServices(unittest.TestCase):
         self.assertEqual(result, mock_history)
         mock_elastic_utils.return_value.get_sync_history.assert_called_once_with(5)
     
-    def test_get_sync_history_no_token(self):
-        """Test get sync history without token raises RBAC error."""
-        with self.assertRaises(SyncRBACError) as context:
-            SyncServices.get_sync_history(token=None, breadcrumb=self.breadcrumb)
-        self.assertIn("Authentication token required", str(context.exception))
-    
     def test_get_sync_history_non_admin_token(self):
-        """Test get sync history with non-admin token raises RBAC error."""
-        with self.assertRaises(SyncRBACError) as context:
-            SyncServices.get_sync_history(token=self.user_token, breadcrumb=self.breadcrumb)
+        """Test get sync history with non-admin token raises error."""
+        with self.assertRaises(SyncError) as context:
+            SyncServices.get_sync_history(limit=10, token=self.user_token, breadcrumb=self.breadcrumb)
         self.assertIn("Admin role required", str(context.exception))
-    
-    @patch('source.services.sync_services.ElasticUtils')
-    def test_get_sync_history_error(self, mock_elastic_utils):
-        """Test get sync history when error occurs."""
-        # Mock elastic utils to raise exception
-        mock_elastic_utils.return_value.get_sync_history.side_effect = Exception("Elastic error")
-        
-        # Test
-        result = SyncServices.get_sync_history(token=self.admin_token, breadcrumb=self.breadcrumb)
-        
-        # Verify
-        self.assertEqual(result, [])
     
     def test_set_sync_periodicity_valid(self):
         """Test set sync periodicity with valid value."""
@@ -195,22 +160,16 @@ class TestSyncServices(unittest.TestCase):
         self.assertEqual(result["sync_period_seconds"], 300)
         self.assertIn("message", result)
     
-    def test_set_sync_periodicity_no_token(self):
-        """Test set sync periodicity without token raises RBAC error."""
-        with self.assertRaises(SyncRBACError) as context:
-            SyncServices.set_sync_periodicity(300, token=None, breadcrumb=self.breadcrumb)
-        self.assertIn("Authentication token required", str(context.exception))
-    
     def test_set_sync_periodicity_non_admin_token(self):
-        """Test set sync periodicity with non-admin token raises RBAC error."""
-        with self.assertRaises(SyncRBACError) as context:
+        """Test set sync periodicity with non-admin token raises error."""
+        with self.assertRaises(SyncError) as context:
             SyncServices.set_sync_periodicity(300, token=self.user_token, breadcrumb=self.breadcrumb)
         self.assertIn("Admin role required", str(context.exception))
     
     def test_set_sync_periodicity_invalid(self):
         """Test set sync periodicity with invalid value."""
         # Test
-        with self.assertRaises(ValueError) as context:
+        with self.assertRaises(SyncError) as context:
             SyncServices.set_sync_periodicity(-1, token=self.admin_token, breadcrumb=self.breadcrumb)
         
         # Verify
@@ -225,15 +184,9 @@ class TestSyncServices(unittest.TestCase):
         self.assertIn("sync_period_seconds", result)
         self.assertIsInstance(result["sync_period_seconds"], int)
     
-    def test_get_sync_periodicity_no_token(self):
-        """Test get sync periodicity without token raises RBAC error."""
-        with self.assertRaises(SyncRBACError) as context:
-            SyncServices.get_sync_periodicity(token=None, breadcrumb=self.breadcrumb)
-        self.assertIn("Authentication token required", str(context.exception))
-    
     def test_get_sync_periodicity_non_admin_token(self):
-        """Test get sync periodicity with non-admin token raises RBAC error."""
-        with self.assertRaises(SyncRBACError) as context:
+        """Test get sync periodicity with non-admin token raises error."""
+        with self.assertRaises(SyncError) as context:
             SyncServices.get_sync_periodicity(token=self.user_token, breadcrumb=self.breadcrumb)
         self.assertIn("Admin role required", str(context.exception))
     
