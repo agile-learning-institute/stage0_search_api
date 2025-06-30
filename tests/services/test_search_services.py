@@ -7,14 +7,10 @@ from src.services.search_services import SearchServices
 
 class TestSearchServices(unittest.TestCase):
     
-    def setUp(self):
-        """Set up test instance."""
-        with patch('src.services.search_services.ElasticUtils'):
-            self.search_services = SearchServices()
-    
+    @patch('src.services.search_services.ElasticUtils')
     @patch('src.services.search_services.urllib.parse.unquote')
     @patch('src.services.search_services.json.loads')
-    def test_search_documents_with_query(self, mock_json_loads, mock_unquote):
+    def test_search_documents_with_query(self, mock_json_loads, mock_unquote, mock_elastic_utils):
         """Test search documents with query parameter."""
         # Mock dependencies
         mock_query = {"query": {"match": {"collection_name": "bots"}}}
@@ -25,21 +21,22 @@ class TestSearchServices(unittest.TestCase):
         mock_results = [
             {"collection_id": "123", "collection_name": "bots", "bots": {"name": "Test Bot"}}
         ]
-        self.search_services.elastic_utils.search_documents.return_value = mock_results
+        mock_elastic_utils.return_value.search_documents.return_value = mock_results
         
         # Test
-        result = self.search_services.search_documents(query_param="test_query")
+        result = SearchServices.search_documents(query_param="test_query")
         
         # Verify
         self.assertEqual(result, mock_results)
         mock_unquote.assert_called_once_with("test_query")
         mock_json_loads.assert_called_once()
-        self.search_services.elastic_utils.search_documents.assert_called_once_with(
+        mock_elastic_utils.return_value.search_documents.assert_called_once_with(
             query=mock_query, search_text=None
         )
     
+    @patch('src.services.search_services.ElasticUtils')
     @patch('src.services.search_services.urllib.parse.unquote')
-    def test_search_documents_with_search_text(self, mock_unquote):
+    def test_search_documents_with_search_text(self, mock_unquote, mock_elastic_utils):
         """Test search documents with search parameter."""
         # Mock dependencies
         mock_unquote.return_value = "test bot"
@@ -48,15 +45,15 @@ class TestSearchServices(unittest.TestCase):
         mock_results = [
             {"collection_id": "123", "collection_name": "bots", "bots": {"name": "Test Bot"}}
         ]
-        self.search_services.elastic_utils.search_documents.return_value = mock_results
+        mock_elastic_utils.return_value.search_documents.return_value = mock_results
         
         # Test
-        result = self.search_services.search_documents(search_param="test_search")
+        result = SearchServices.search_documents(search_param="test_search")
         
         # Verify
         self.assertEqual(result, mock_results)
         mock_unquote.assert_called_once_with("test_search")
-        self.search_services.elastic_utils.search_documents.assert_called_once_with(
+        mock_elastic_utils.return_value.search_documents.assert_called_once_with(
             query=None, search_text="test bot"
         )
     
@@ -70,34 +67,36 @@ class TestSearchServices(unittest.TestCase):
         
         # Test
         with self.assertRaises(ValueError) as context:
-            self.search_services.search_documents(query_param="invalid_query")
+            SearchServices.search_documents(query_param="invalid_query")
         
         # Verify
         self.assertIn("Invalid query parameter format", str(context.exception))
     
+    @patch('src.services.search_services.ElasticUtils')
     @patch('src.services.search_services.urllib.parse.unquote')
-    def test_search_documents_elastic_error(self, mock_unquote):
+    def test_search_documents_elastic_error(self, mock_unquote, mock_elastic_utils):
         """Test search documents when elastic utils raises exception."""
         # Mock dependencies
         mock_unquote.return_value = "test"
         
         # Mock elastic utils to raise exception
-        self.search_services.elastic_utils.search_documents.side_effect = Exception("Elastic error")
+        mock_elastic_utils.return_value.search_documents.side_effect = Exception("Elastic error")
         
         # Test
         with self.assertRaises(Exception) as context:
-            self.search_services.search_documents(search_param="test")
+            SearchServices.search_documents(search_param="test")
         
         # Verify
         self.assertEqual(str(context.exception), "Elastic error")
     
-    def test_get_search_stats(self):
+    @patch('src.services.search_services.ElasticUtils')
+    def test_get_search_stats(self, mock_elastic_utils):
         """Test get search stats."""
         # Mock elastic utils
-        self.search_services.elastic_utils.search_index = "test_index"
+        mock_elastic_utils.return_value.search_index = "test_index"
         
         # Test
-        result = self.search_services.get_search_stats()
+        result = SearchServices.get_search_stats()
         
         # Verify
         self.assertIn("search_index", result)
@@ -105,16 +104,18 @@ class TestSearchServices(unittest.TestCase):
         self.assertIn("status", result)
         self.assertEqual(result["status"], "active")
     
-    def test_get_search_stats_error(self):
+    @patch('src.services.search_services.ElasticUtils')
+    def test_get_search_stats_error(self, mock_elastic_utils):
         """Test get search stats when error occurs."""
         # Mock elastic utils to raise exception on search_index access
-        type(self.search_services.elastic_utils).search_index = property(lambda self: (_ for _ in ()).throw(Exception("Elastic error")))
+        type(mock_elastic_utils.return_value).search_index = property(lambda self: (_ for _ in ()).throw(Exception("Elastic error")))
         
         # Test
-        result = self.search_services.get_search_stats()
+        result = SearchServices.get_search_stats()
         
         # Verify
         self.assertIn("error", result)
+        self.assertIn("Elastic error", result["error"])
 
 if __name__ == '__main__':
     unittest.main() 

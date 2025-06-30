@@ -10,89 +10,69 @@ from stage0_py_utils import Config
 logger = logging.getLogger(__name__)
 
 class SyncServices:
-    def __init__(self):
-        self.elastic_utils = ElasticUtils()
-        self.mongo_utils = MongoUtils()
-        self.config = Config.get_instance()
+    """Static service class for MongoDB to Elasticsearch synchronization operations."""
     
-    def sync_all_collections(self) -> Dict:
-        """Sync all collections from MongoDB to Elasticsearch."""
+    @staticmethod
+    def sync_all_collections() -> Dict:
+        """
+        Sync all collections from MongoDB to Elasticsearch.
+        
+        Returns:
+            Dict containing sync results with sync_id, timing, and collection statistics.
+            
+        Raises:
+            Exception: If sync operation fails.
+        """
         try:
             start_time = datetime.now()
             sync_id = str(uuid.uuid4())
             
             logger.info(f"Starting sync {sync_id} at {start_time}")
             
-            # Get latest sync time
-            latest_sync_time = self.elastic_utils.get_latest_sync_time()
+            # Get latest sync time and collection names
+            latest_sync_time = SyncServices._get_latest_sync_time()
+            collection_names = SyncServices._get_collection_names()
             
             # Process each collection
             collection_results = []
             total_synced = 0
             
-            for collection_name in self.mongo_utils.get_collection_names():
+            for collection_name in collection_names:
                 logger.info(f"Processing collection: {collection_name}")
-                
-                # Process collection in batches
-                batch_count = 0
-                collection_synced = 0
-                
-                while True:
-                    # Get batch of index cards
-                    index_cards = self.mongo_utils.process_collection_batch(
-                        collection_name=collection_name,
-                        since_time=latest_sync_time,
-                        batch_size=self.config.SYNC_BATCH_SIZE
-                    )
-                    
-                    if not index_cards:
-                        break
-                    
-                    # Bulk upsert to Elasticsearch
-                    result = self.elastic_utils.bulk_upsert_documents(index_cards)
-                    collection_synced += result["success"]
-                    total_synced += result["success"]
-                    
-                    batch_count += 1
-                    logger.info(f"Batch {batch_count} for {collection_name}: {result['success']} synced, {result['failed']} failed")
-                    
-                    # If we got fewer documents than batch size, we're done
-                    if len(index_cards) < self.config.SYNC_BATCH_SIZE:
-                        break
-                
-                # Record collection result
-                collection_results.append({
-                    "name": collection_name,
-                    "count": collection_synced,
-                    "end_time": datetime.now().isoformat()
-                })
-                
-                logger.info(f"Completed {collection_name}: {collection_synced} documents synced")
+                collection_result = SyncServices._sync_single_collection(
+                    collection_name, latest_sync_time
+                )
+                collection_results.append(collection_result)
+                total_synced += collection_result["count"]
             
-            # Save sync history
-            self.elastic_utils.save_sync_history(sync_id, start_time, collection_results)
+            # Save sync history and return results
+            SyncServices._save_sync_history(sync_id, start_time, collection_results)
+            result = SyncServices._build_sync_result(
+                sync_id, start_time, total_synced, collection_results
+            )
             
-            end_time = datetime.now()
-            duration = (end_time - start_time).total_seconds()
-            
-            result = {
-                "sync_id": sync_id,
-                "start_time": start_time.isoformat(),
-                "end_time": end_time.isoformat(),
-                "duration_seconds": duration,
-                "total_synced": total_synced,
-                "collections": collection_results
-            }
-            
-            logger.info(f"Sync {sync_id} completed: {total_synced} documents in {duration}s")
+            logger.info(f"Sync {sync_id} completed: {total_synced} documents in {result['duration_seconds']}s")
             return result
             
         except Exception as e:
             logger.error(f"Error in sync_all_collections: {e}")
             raise
     
-    def sync_collection(self, collection_name: str, index_as: Optional[str] = None) -> Dict:
-        """Sync a specific collection from MongoDB to Elasticsearch."""
+    @staticmethod
+    def sync_collection(collection_name: str, index_as: Optional[str] = None) -> Dict:
+        """
+        Sync a specific collection from MongoDB to Elasticsearch.
+        
+        Args:
+            collection_name: Name of the collection to sync.
+            index_as: Optional collection name to use for indexing (for polymorphic patterns).
+            
+        Returns:
+            Dict containing sync results for the specific collection.
+            
+        Raises:
+            Exception: If sync operation fails.
+        """
         try:
             start_time = datetime.now()
             sync_id = str(uuid.uuid4())
@@ -100,81 +80,64 @@ class SyncServices:
             logger.info(f"Starting sync for collection {collection_name} (index_as: {index_as})")
             
             # Get latest sync time
-            latest_sync_time = self.elastic_utils.get_latest_sync_time()
+            latest_sync_time = SyncServices._get_latest_sync_time()
             
-            # Process collection in batches
-            batch_count = 0
-            total_synced = 0
+            # Process collection
+            collection_result = SyncServices._sync_single_collection(
+                collection_name, latest_sync_time, index_as
+            )
             
-            while True:
-                # Get batch of index cards
-                index_cards = self.mongo_utils.process_collection_batch(
-                    collection_name=collection_name,
-                    since_time=latest_sync_time,
-                    batch_size=self.config.SYNC_BATCH_SIZE,
-                    index_as=index_as
-                )
-                
-                if not index_cards:
-                    break
-                
-                # Bulk upsert to Elasticsearch
-                result = self.elastic_utils.bulk_upsert_documents(index_cards)
-                total_synced += result["success"]
-                
-                batch_count += 1
-                logger.info(f"Batch {batch_count}: {result['success']} synced, {result['failed']} failed")
-                
-                # If we got fewer documents than batch size, we're done
-                if len(index_cards) < self.config.SYNC_BATCH_SIZE:
-                    break
+            # Save sync history and return results
+            SyncServices._save_sync_history(sync_id, start_time, [collection_result])
+            result = SyncServices._build_collection_sync_result(
+                sync_id, collection_name, index_as, start_time, collection_result["count"]
+            )
             
-            # Save sync history
-            collection_results = [{
-                "name": collection_name,
-                "count": total_synced,
-                "end_time": datetime.now().isoformat()
-            }]
-            
-            self.elastic_utils.save_sync_history(sync_id, start_time, collection_results)
-            
-            end_time = datetime.now()
-            duration = (end_time - start_time).total_seconds()
-            
-            result = {
-                "sync_id": sync_id,
-                "collection": collection_name,
-                "index_as": index_as,
-                "start_time": start_time.isoformat(),
-                "end_time": end_time.isoformat(),
-                "duration_seconds": duration,
-                "total_synced": total_synced
-            }
-            
-            logger.info(f"Collection sync completed: {total_synced} documents in {duration}s")
+            logger.info(f"Collection sync completed: {collection_result['count']} documents in {result['duration_seconds']}s")
             return result
             
         except Exception as e:
             logger.error(f"Error in sync_collection: {e}")
             raise
     
-    def get_sync_history(self, limit: int = 10) -> List[Dict]:
-        """Get sync history from Elasticsearch."""
-        try:
-            return self.elastic_utils.get_sync_history(limit)
+    @staticmethod
+    def get_sync_history(limit: int = 10) -> List[Dict]:
+        """
+        Get sync history from Elasticsearch.
+        
+        Args:
+            limit: Maximum number of history entries to return.
             
+        Returns:
+            List of sync history entries.
+        """
+        try:
+            return ElasticUtils().get_sync_history(limit)
         except Exception as e:
             logger.error(f"Error getting sync history: {e}")
             return []
     
-    def set_sync_periodicity(self, period_seconds: int) -> Dict:
-        """Set the sync periodicity (stored in memory)."""
+    @staticmethod
+    def set_sync_periodicity(period_seconds: int) -> Dict:
+        """
+        Set the sync periodicity (stored in memory).
+        
+        Args:
+            period_seconds: Sync period in seconds.
+            
+        Returns:
+            Dict containing the updated sync period.
+            
+        Raises:
+            ValueError: If period_seconds is negative.
+        """
         try:
             if period_seconds < 0:
                 raise ValueError("Sync period must be non-negative")
             
             # Update the config value in memory
-            self.config.ELASTIC_SYNC_PERIOD = period_seconds
+            config = Config.get_instance()
+            config.ELASTIC_SYNC_PERIOD = period_seconds
             
             logger.info(f"Sync periodicity set to {period_seconds} seconds")
             
@@ -187,13 +150,128 @@ class SyncServices:
             logger.error(f"Error setting sync periodicity: {e}")
             raise
     
-    def get_sync_periodicity(self) -> Dict:
-        """Get the current sync periodicity."""
+    @staticmethod
+    def get_sync_periodicity() -> Dict:
+        """
+        Get the current sync periodicity.
+        
+        Returns:
+            Dict containing the current sync period.
+        """
         try:
+            config = Config.get_instance()
             return {
-                "sync_period_seconds": self.config.ELASTIC_SYNC_PERIOD
+                "sync_period_seconds": config.ELASTIC_SYNC_PERIOD
             }
-            
         except Exception as e:
             logger.error(f"Error getting sync periodicity: {e}")
-            return {"error": str(e)} 
+            return {"error": str(e)}
+    
+    # Private helper methods
+    
+    @staticmethod
+    def _get_latest_sync_time() -> Optional[datetime]:
+        """Get the latest sync time from Elasticsearch."""
+        return ElasticUtils().get_latest_sync_time()
+    
+    @staticmethod
+    def _get_collection_names() -> List[str]:
+        """Get list of collection names to sync."""
+        return MongoUtils().get_collection_names()
+    
+    @staticmethod
+    def _sync_single_collection(
+        collection_name: str, 
+        since_time: Optional[datetime], 
+        index_as: Optional[str] = None
+    ) -> Dict:
+        """
+        Sync a single collection in batches.
+        
+        Args:
+            collection_name: Name of the collection to sync.
+            since_time: Time to sync from (for incremental sync).
+            index_as: Optional collection name for indexing.
+            
+        Returns:
+            Dict containing sync results for the collection.
+        """
+        config = Config.get_instance()
+        batch_count = 0
+        total_synced = 0
+        
+        while True:
+            # Get batch of index cards
+            index_cards = MongoUtils().process_collection_batch(
+                collection_name=collection_name,
+                since_time=since_time,
+                batch_size=config.SYNC_BATCH_SIZE,
+                index_as=index_as
+            )
+            
+            if not index_cards:
+                break
+            
+            # Bulk upsert to Elasticsearch
+            result = ElasticUtils().bulk_upsert_documents(index_cards)
+            total_synced += result["success"]
+            
+            batch_count += 1
+            logger.info(f"Batch {batch_count}: {result['success']} synced, {result['failed']} failed")
+            
+            # If we got fewer documents than batch size, we're done
+            if len(index_cards) < config.SYNC_BATCH_SIZE:
+                break
+        
+        return {
+            "name": collection_name,
+            "count": total_synced,
+            "end_time": datetime.now().isoformat()
+        }
+    
+    @staticmethod
+    def _save_sync_history(sync_id: str, start_time: datetime, collection_results: List[Dict]):
+        """Save sync history to Elasticsearch."""
+        ElasticUtils().save_sync_history(sync_id, start_time, collection_results)
+    
+    @staticmethod
+    def _build_sync_result(
+        sync_id: str, 
+        start_time: datetime, 
+        total_synced: int, 
+        collection_results: List[Dict]
+    ) -> Dict:
+        """Build the final sync result dictionary."""
+        end_time = datetime.now()
+        duration = (end_time - start_time).total_seconds()
+        
+        return {
+            "sync_id": sync_id,
+            "start_time": start_time.isoformat(),
+            "end_time": end_time.isoformat(),
+            "duration_seconds": duration,
+            "total_synced": total_synced,
+            "collections": collection_results
+        }
+    
+    @staticmethod
+    def _build_collection_sync_result(
+        sync_id: str, 
+        collection_name: str, 
+        index_as: Optional[str], 
+        start_time: datetime, 
+        total_synced: int
+    ) -> Dict:
+        """Build the final collection sync result dictionary."""
+        end_time = datetime.now()
+        duration = (end_time - start_time).total_seconds()
+        
+        return {
+            "sync_id": sync_id,
+            "collection": collection_name,
+            "index_as": index_as,
+            "start_time": start_time.isoformat(),
+            "end_time": end_time.isoformat(),
+            "duration_seconds": duration,
+            "total_synced": total_synced
+        } 

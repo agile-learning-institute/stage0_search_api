@@ -8,6 +8,7 @@ flask = "*"
 pymongo = "*"
 elasticsearch = "*"
 stage0-py-utils = "*"
+prometheus-flask-exporter = "*"
 
 [dev-packages]
 pytest = "*"
