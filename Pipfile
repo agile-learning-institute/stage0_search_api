@@ -1,0 +1,23 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+flask = "*"
+pymongo = "*"
+elasticsearch = "*"
+stage0-py-utils = "*"
+
+[dev-packages]
+pytest = "*"
+pytest-cov = "*"
+black = "*"
+flake8 = "*"
+
+[scripts]
+local = "stage0 down && stage0 up elasticsearch && python src/server.py"
+test = "python -m pytest tests/ -v --cov=src --cov-report=html"
+stepci = "stepci run tests/stepci/search_api.yaml"
+build = "docker build -t stage0-search-api ."
+container = "stage0 down && stage0 up search-api" 
