@@ -1,11 +1,11 @@
 # stage0_search_api
 
 API Endpoints
-GET /search returns polymorphic index cards
+GET /search returns polymorphic list of index cards
 GET /sync - Get synchronization history
 POST /sync - One-time Batch sync from mongo to elastic
-PATCH /sync - Set Batch sync periodicity 
-PATCH /sync/{collection} - Upsert index cards from a collection
+PUT /sync - Set Batch sync periodicity 
+PATCH /sync/{collection}?index_as - Upsert index cards from a collection
 GET /health Standard Prometheus endpoint
 GET /config Standard config endpoint
 
@@ -37,6 +37,11 @@ GET /config Standard config endpoint
 - Create local elastic_utils to abstract elastic operations
 
 sync service core
+find newest last_saved:at_time 
+for collection in [Config.COLLECTION1, Config.COLLECTION1, ...]
+    mongo get cursor of documents from collection where last_saved > newest
+    index documents (add Config.SYNC_BATCH_SIZE) of records at a time
+
 index_documents(collection, documents, index_as)
     if !index_as: index_as = collection
     for document in documents:
