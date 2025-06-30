@@ -21,12 +21,8 @@ def get_sync_history():
         return jsonify(history)
         
     except Exception as e:
-        logger.error(f"{breadcrumb} Unexpected error getting sync history: {str(e)}")
-        return jsonify([{
-            "error": "Failed to get sync history",
-            "error_id": "SYNC-001",
-            "message": str(e)
-        }]), 500
+        logger.error(f"{breadcrumb} Sync history error: {str(e)}")
+        return jsonify({}), 500
 
 @sync_bp.route('/sync', methods=['POST'])
 def sync_all_collections():
@@ -40,12 +36,8 @@ def sync_all_collections():
         return jsonify(result)
         
     except Exception as e:
-        logger.error(f"{breadcrumb} Unexpected error syncing all collections: {str(e)}")
-        return jsonify([{
-            "error": "Failed to sync all collections",
-            "error_id": "SYNC-002",
-            "message": str(e)
-        }]), 500
+        logger.error(f"{breadcrumb} Sync all collections error: {str(e)}")
+        return jsonify({}), 500
 
 @sync_bp.route('/sync', methods=['PUT'])
 def set_sync_periodicity():
@@ -69,17 +61,9 @@ def set_sync_periodicity():
         logger.info(f"{breadcrumb} Successfully set sync periodicity to {period_seconds} seconds")
         return jsonify(result)
         
-    except ValueError as e:
-        logger.error(f"{breadcrumb} Invalid sync periodicity: {str(e)}")
-        return jsonify({"error": str(e)}), 400
-        
     except Exception as e:
-        logger.error(f"{breadcrumb} Unexpected error setting sync periodicity: {str(e)}")
-        return jsonify([{
-            "error": "Failed to set sync periodicity",
-            "error_id": "SYNC-003",
-            "message": str(e)
-        }]), 500
+        logger.error(f"{breadcrumb} Set sync periodicity error: {str(e)}")
+        return jsonify({}), 500
 
 @sync_bp.route('/sync/<collection_name>', methods=['PATCH'])
 def sync_collection(collection_name):
@@ -104,12 +88,8 @@ def sync_collection(collection_name):
         return jsonify(result)
         
     except Exception as e:
-        logger.error(f"{breadcrumb} Unexpected error syncing collection {collection_name}: {str(e)}")
-        return jsonify([{
-            "error": "Failed to sync collection",
-            "error_id": "SYNC-004",
-            "message": str(e)
-        }]), 500
+        logger.error(f"{breadcrumb} Sync collection error: {str(e)}")
+        return jsonify({}), 500
 
 @sync_bp.route('/sync/periodicity', methods=['GET'])
 def get_sync_periodicity():
@@ -123,9 +103,5 @@ def get_sync_periodicity():
         return jsonify(result)
         
     except Exception as e:
-        logger.error(f"{breadcrumb} Unexpected error getting sync periodicity: {str(e)}")
-        return jsonify([{
-            "error": "Failed to get sync periodicity",
-            "error_id": "SYNC-005",
-            "message": str(e)
-        }]), 500 
+        logger.error(f"{breadcrumb} Get sync periodicity error: {str(e)}")
+        return jsonify({}), 500 
