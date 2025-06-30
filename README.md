@@ -34,15 +34,17 @@ Code Structure
 ```
 
 ## Notes
-- Initialize on startup, apply mapping config from config file (Add Config.ELASTIC_CONFIG_MAPPING in py_utils) - Two elastic indexes (search and history, add Config.VALUES values for these)
+- Initialize on startup, apply mapping configs for search and sync history indexes
+  - Add Config.ELASTIC_SEARCH_INDEX, Config.ELASTIC_SYNC_INDEX for index names
+  - Add Config.ELASTIC_SEARCH_MAPPING and Config.ELASTIC_SYNC_MAPPING for mappings
 - Add Config.ELASTIC_SYNC_PERIOD integer 0 default (no sync) otherwise this will be periodically sync in seconds
-- PATCH /sync endpoint sets sync periodicity - value does not persist over restart
+- PUT /sync endpoint sets sync periodicity - value does not persist over restart
 - POST /sync service function has list of collections using Config.COLLECTION_NAME configuration values.
 - Create local mongo_utils to implement cursor processing
 - Create local elastic_utils to abstract elastic operations
 
 search feature MVP
-- if query path parameter - parse as elastic search query and use that
+- if query path parameter - parse as json elastic search query and use that
 - if no query given, do a simple full text search
 - leave empty placeholders for rank and filter enhancements
 
