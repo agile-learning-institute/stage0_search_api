@@ -1,9 +1,15 @@
 import json
 import sys
 import signal
+import os
+from pathlib import Path
 from flask import Flask
 from stage0_py_utils import Config, MongoJSONEncoder, create_config_routes
 from prometheus_flask_exporter import PrometheusMetrics
+
+# Add project root to Python path for imports
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
 
 # Initialize Singletons
 config = Config.get_instance()
