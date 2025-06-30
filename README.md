@@ -1,17 +1,20 @@
 # stage0_search_api
 
 API Endpoints
-GET /search returns polymorphic list of index cards
-GET /sync - Get synchronization history
-POST /sync - One-time Batch sync from mongo to elastic
-PUT /sync - Set Batch sync periodicity 
-PATCH /sync/{collection}?index_as - Upsert index cards from a collection
-GET /health Standard Prometheus endpoint
-GET /config Standard config endpoint
+- GET /search returns polymorphic list of index cards
+- GET /sync - Get synchronization history
+- POST /sync - One-time Batch sync from mongo to elastic
+- PUT /sync - Set Batch sync periodicity 
+- PATCH /sync/{collection}?index_as - Upsert index cards from a collection
+- GET /health Standard Prometheus endpoint
+- GET /config Standard config endpoint
 
+Data Structures
 - index card {collection_id, collection_name, last_saved, collection1: {document}, collection2: {document}...}
 - sync history {id, start_time, collections [{name, count, end_time}]} persisted in elastic history index
 
+Code Structure
+```
 /source
 - server.py # Typical Flask server - see 
   /routes
@@ -28,15 +31,23 @@ GET /config Standard config endpoint
   /routes
   /services
   /stepci
+```
 
-- Initialize on startup, apply mapping config from config file (Add Config.ELASTIC_CONFIG_MAPPING in py_utils)
+## Notes
+- Initialize on startup, apply mapping config from config file (Add Config.ELASTIC_CONFIG_MAPPING in py_utils) - Two elastic indexes (search and history, add Config.VALUES values for these)
 - Add Config.ELASTIC_SYNC_PERIOD integer 0 default (no sync) otherwise this will be periodically sync in seconds
 - PATCH /sync endpoint sets sync periodicity - value does not persist over restart
 - POST /sync service function has list of collections using Config.COLLECTION_NAME configuration values.
 - Create local mongo_utils to implement cursor processing
 - Create local elastic_utils to abstract elastic operations
 
+search feature MVP
+- if query path parameter - parse as elastic search query and use that
+- if no query given, do a simple full text search
+- leave empty placeholders for rank and filter enhancements
+
 sync service core
+```
 find newest last_saved:at_time 
 for collection in [Config.COLLECTION1, Config.COLLECTION1, ...]
     mongo get cursor of documents from collection where last_saved > newest
@@ -52,9 +63,5 @@ index_documents(collection, documents, index_as)
             collection = document
         ]
         upsert card (key is index_as, collection_id)
-
-search MVP
-- if query path parameter - parse as elastic search query and use that
-- if no query given, do a simple full text search
-- leave empty placeholders for rank and filter enhancements
+```
 
