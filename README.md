@@ -1,242 +1,195 @@
-# stage0_search_api
+# Stage0 Search API
 
-A polymorphic search API that indexes documents from multiple MongoDB collections into Elasticsearch for unified search capabilities.
+A Flask-based REST API service for searching and synchronizing data between MongoDB and Elasticsearch. This service provides search capabilities with token-based authentication and role-based access control (RBAC).
 
-## Current Status
+## Features
 
-### ✅ Phase 1 Complete: Configuration Foundation
-- **stage0_py_utils v0.2.5** updated with search API configuration items:
-  - `ELASTIC_SEARCH_INDEX` (string, default: "stage0_search")
-  - `ELASTIC_SYNC_INDEX` (string, default: "stage0_sync_history")
-  - `ELASTIC_SEARCH_MAPPING` (JSON, default mapping for collection_name, collection_id, last_saved)
-  - `ELASTIC_SYNC_MAPPING` (JSON, default mapping for started_at)
-  - `ELASTIC_SYNC_PERIOD` (integer, default: 0)
-  - `SYNC_BATCH_SIZE` (integer, default: 100)
-- All configuration tests passing
-- Ready for PyPI publication
+- **Search Operations**: Full-text search and structured query support via Elasticsearch
+- **Data Synchronization**: Sync MongoDB collections to Elasticsearch with admin-only access
+- **RBAC Security**: Role-based access control with admin and user roles
+- **Token Authentication**: Secure token-based authentication with breadcrumb tracing
+- **Observability**: Comprehensive logging and monitoring support
 
-### ✅ Phase 2 Complete: Core API Implementation
-- **Flask Application Structure** created with proper package organization
-- **Dependency Management** configured with Pipfile and pyproject.toml
-- **Core Services** implemented:
-  - `elastic_utils.py` - Elasticsearch operations abstraction
-  - `mongo_utils.py` - MongoDB cursor processing and index card creation
-  - `search_services.py` - Search business logic with query parsing
-  - `sync_services.py` - Synchronization business logic with batch processing
-- **API Endpoints** implemented:
-  - `search_routes.py` - Search endpoints with query and text search support
-  - `sync_routes.py` - Sync endpoints for batch and collection-specific sync
-  - `health_routes.py` - Health and config endpoints following py_utils pattern
-- **Standard Automation Scripts** configured:
-  - `pipenv run local` - `stage0 down && stage0 up elasticsearch` + local API
-  - `pipenv run test` - Unit tests with coverage
-  - `pipenv run stepci` - End-to-end tests
-  - `pipenv run build` - Docker build
-  - `pipenv run container` - `stage0 down && stage0 up search-api`
-- **Server Application** with index initialization and route registration
+## Architecture
 
-### 🔄 Phase 3: Testing & Documentation (Next)
-- Create comprehensive unit tests for all components
-- Add StepCI end-to-end tests
-- Create Dockerfile for containerization
-- Add curl examples and usage documentation
+### Application Structure
+
+- **server.py** - Main Flask application entry point
+- **routes/** - API endpoint handlers
+  - **search_routes.py** - Search operations (`/api/search`)
+  - **sync_routes.py** - Synchronization operations (`/api/sync`)
+- **services/** - Business logic layer
+  - **search_services.py** - Search operations and query processing
+  - **sync_services.py** - MongoDB to Elasticsearch synchronization
+- **utils/** - Utility modules
+  - **elastic_utils.py** - Elasticsearch client operations
+  - **mongo_utils.py** - MongoDB client operations
+
+### Security Model
+
+- **Token-based Authentication**: All requests require valid authentication tokens
+- **Role-based Access Control**: 
+  - `admin` role: Full access to all operations including sync
+  - `user` role: Read-only access to search operations
+- **Breadcrumb Tracing**: All operations include request tracing for observability
+
+## Development Setup
+
+### Prerequisites
+
+- Python 3.12+
+- pipenv
+- MongoDB instance
+- Elasticsearch instance
+
+### Quick Start
+
+```bash
+# Clone the repository
+git clone <repository-url>
+cd stage0_search_api
+
+# Install dependencies
+pipenv install --dev
+
+# Set up environment variables
+export MONGO_CONNECTION_STRING="mongodb://localhost:27017/?replicaSet=rs0"
+export ELASTIC_CLIENT_OPTIONS='{"hosts":"http://localhost:9200"}'
+export LOGGING_LEVEL=INFO
+
+# Run locally
+pipenv run local
+# Open http://localhost:8083/
+```
+
+### Developer Commands
+
+```bash
+# Run the service locally
+pipenv run local
+
+# Run with debug logging
+pipenv run debug
+
+# Run unit tests with coverage
+pipenv run test
+
+# Run black box tests
+pipenv run stepci
+
+# Build Docker container
+pipenv run build
+
+# Start containerized service stack
+pipenv run service
+
+# Start just the database
+pipenv run database
+
+# Stop all containers
+pipenv run down
+```
 
 ## API Endpoints
 
-- **GET /api/search** - Polymorphic search with query parameter support
-  - `?query=<url-encoded-json>` - Elasticsearch query
-  - `?search=<url-encoded-string>` - Simple full text search across all fields
-- **GET /api/sync** - Get synchronization history
-- **POST /api/sync** - One-time batch sync from MongoDB to Elasticsearch
-- **PUT /api/sync** - Set batch sync periodicity (updates Config.ELASTIC_SYNC_PERIOD)
-- **PATCH /api/sync/{collection}?index_as=<collection>** - Upsert index cards from a collection
-- **GET /api/sync/periodicity** - Get current sync periodicity
-- **GET /api/health** - Standard Prometheus health endpoint
-- **GET /api/config** - Standard configuration endpoint
-- **GET /** - Root endpoint with service information
+### Search Operations
 
-## Data Structures
+#### Search Documents
+```bash
+# Simple text search
+curl -X GET "http://localhost:8083/api/search?search=test%20query" \
+  -H "Authorization: Bearer <token>"
 
-### Index Card
-Supports both single collection and polymorphic patterns:
-
-**Pattern A (Most common)**: One document from one collection
-```json
-{
-  "collection_id": "doc123",
-  "collection_name": "bots", 
-  "last_saved": "2024-01-01T10:00:00Z",
-  "bots": { /* the actual bot document */ }
-}
+# Structured Elasticsearch query
+curl -X GET "http://localhost:8083/api/search?query=%7B%22match%22%3A%7B%22title%22%3A%22test%22%7D%7D" \
+  -H "Authorization: Bearer <token>"
 ```
 
-**Pattern B (Extension pattern)**: Multiple related documents indexed together
-```json
-{
-  "collection_id": "some_id",
-  "collection_name": "polymorphic",
-  "last_saved": "2024-01-01T10:00:00Z", 
-  "bots": { /* bot document */ },
-  "conversations": { /* conversation document */ },
-  "workshops": { /* workshop document */ }
-}
+### Synchronization Operations (Admin Only)
+
+#### Sync All Collections
+```bash
+curl -X POST "http://localhost:8083/api/sync/collections" \
+  -H "Authorization: Bearer <admin_token>"
 ```
 
-### Sync History
-```json
-{
-  "id": "sync_123",
-  "start_time": "2024-01-01T10:00:00Z",
-  "collections": [
-    {
-      "name": "bots",
-      "count": 150,
-      "end_time": "2024-01-01T10:05:00Z"
-    }
-  ]
-}
+#### Sync Specific Collection
+```bash
+curl -X POST "http://localhost:8083/api/sync/collections/bots" \
+  -H "Authorization: Bearer <admin_token>"
+
+# With custom index name
+curl -X POST "http://localhost:8083/api/sync/collections/bots?index_as=custom_index" \
+  -H "Authorization: Bearer <admin_token>"
 ```
 
-## Project Structure
-
-```
-stage0_search_api/
-├── source/
-│   ├── server.py                   # Main Flask application ✅
-│   ├── routes/
-│   │   ├── search_routes.py        # Search endpoint handlers ✅
-│   │   ├── sync_routes.py          # Sync endpoint handlers ✅
-│   │   └── health_routes.py        # Health and config endpoints ✅
-│   ├── services/
-│   │   ├── search_services.py      # Search business logic ✅
-│   │   └── sync_services.py        # Sync business logic ✅
-│   └── utils/
-│       ├── elastic_utils.py        # Elasticsearch operations ✅
-│       └── mongo_utils.py          # MongoDB operations ✅
-├── tests/                          # 🔄 To be implemented
-│   ├── routes/
-│   │   ├── test_search_routes.py
-│   │   ├── test_sync_routes.py
-│   │   └── test_health_routes.py
-│   ├── services/
-│   │   ├── test_search_services.py
-│   │   └── test_sync_services.py
-│   └── stepci/
-│       └── search_api.yaml
-├── Pipfile                         # Dependency management ✅
-├── pyproject.toml                  # Project metadata ✅
-└── README.md                       # This file ✅
+#### Get Sync History
+```bash
+curl -X GET "http://localhost:8083/api/sync/history?limit=10" \
+  -H "Authorization: Bearer <admin_token>"
 ```
 
-## Key Features
+#### Manage Sync Periodicity
+```bash
+# Get current sync period
+curl -X GET "http://localhost:8083/api/sync/periodicity" \
+  -H "Authorization: Bearer <admin_token>"
 
-### Search Functionality
-- **Polymorphic search**: Search across all collection types with unified interface
-- **Query flexibility**: Support for both JSON Elasticsearch queries and simple string search
-- **Extension pattern support**: Index related documents together using `index_as` parameter
-
-### Sync Functionality
-- **Batch synchronization**: Sync all existing collections (bots, conversations, workshops, exercises, etc.)
-- **Incremental updates**: Only sync documents newer than last sync
-- **Configurable periodicity**: Set sync frequency via PUT /api/sync endpoint
-- **Collection-specific sync**: Sync individual collections via PATCH /api/sync/{collection}
-- **Bulk processing**: Configurable batch size for efficient processing
-
-### Configuration
-- **Elasticsearch mappings**: Configurable mappings for search and sync history indexes
-- **Batch processing**: Configurable batch size for sync operations
-- **Index management**: Separate indexes for search data and sync history
-
-## Standard Automation Scripts
-
-- `pipenv run local` - `stage0 down && stage0 up elasticsearch` + local API ✅
-- `pipenv run test` - Unit tests with coverage 🔄
-- `pipenv run stepci` - End-to-end tests 🔄
-- `pipenv run build` - Docker build 🔄
-- `pipenv run container` - `stage0 down && stage0 up search-api` 🔄
-
-## Implementation Plan
-
-### Phase 3: Testing & Documentation (Next)
-1. **Unit Testing**
-   - Create comprehensive unit tests for all services and routes
-   - Add test coverage reporting
-   - Mock external dependencies (Elasticsearch, MongoDB)
-
-2. **Integration Testing**
-   - Add StepCI end-to-end tests
-   - Test with real backing services
-   - Validate API contract compliance
-
-3. **Containerization**
-   - Create Dockerfile with multi-stage build
-   - Optimize image size
-   - Test container functionality
-
-4. **Documentation**
-   - Add curl examples for all endpoints
-   - Document configuration items
-   - Update README with usage examples
-
-## Notes
-
-- Uses existing collection configs from stage0_py_utils (BOT_COLLECTION_NAME, CONVERSATION_COLLECTION_NAME, etc.)
-- Sync periodicity stored in memory (Config.ELASTIC_SYNC_PERIOD) - resets on restart
-- Follows standard stage0 API patterns for error handling and response formats
-- Supports extension pattern for related documents with same _id across collections
-- Elasticsearch indexes are automatically initialized on startup
-
-Code Structure
-```
-/source
-- server.py # Typical Flask server - see 
-  /routes
-    - search_routes
-    - sync_routes
-  /services
-    - search_services
-    - sync_services
-  /utils
-    - elastic_utils to abstract elastic IO
-    - mongo_utils to abstract mongo IO
-
-/test
-  /routes
-  /services
-  /stepci
+# Set sync period (in seconds)
+curl -X POST "http://localhost:8083/api/sync/periodicity" \
+  -H "Authorization: Bearer <admin_token>" \
+  -H "Content-Type: application/json" \
+  -d '{"period_seconds": 300}'
 ```
 
-## Notes
-- Initialize on startup, apply mapping configs for search and sync history indexes
-  - Add Config.ELASTIC_SEARCH_INDEX, Config.ELASTIC_SYNC_INDEX for index names
-  - Add Config.ELASTIC_SEARCH_MAPPING and Config.ELASTIC_SYNC_MAPPING for mappings
-- Add Config.ELASTIC_SYNC_PERIOD integer 0 default (no sync) otherwise this will be periodically sync in seconds
-- PUT /sync endpoint sets sync periodicity - value does not persist over restart
-- POST /sync service function has list of collections using Config.COLLECTION_NAME configuration values.
-- Create local mongo_utils to implement cursor processing
-- Create local elastic_utils to abstract elastic operations
+## Testing
 
-search feature MVP
-- if query path parameter - parse as json elastic search query and use that
-- if no query given, do a simple full text search
-- leave empty placeholders for rank and filter enhancements
+### Test Structure
 
-sync service core
 ```
-find newest last_saved:at_time 
-for collection in [Config.COLLECTION1, Config.COLLECTION1, ...]
-    mongo get cursor of documents from collection where last_saved > newest
-    index documents (add Config.SYNC_BATCH_SIZE) of records at a time
-
-index_documents(collection, documents, index_as)
-    if !index_as: index_as = collection
-    for document in documents:
-        card = [
-            "collection_name" = collection
-            "collection_id" = document("_id")
-            "last_saved" = document("last_saved")
-            collection = document
-        ]
-        upsert card (key is index_as, collection_id)
+tests/
+├── routes/           # Route endpoint tests
+├── services/         # Service layer tests
+├── stepci/          # Black box API tests
+└── test_data/       # Test fixtures and data
 ```
 
+### Running Tests
+
+```bash
+# Run all tests with coverage
+pipenv run test
+
+# Run specific test file
+python -m pytest tests/routes/test_search_routes.py -v
+
+# Run black box tests
+pipenv run stepci
+```
+
+## Configuration
+
+The service uses the `stage0_py_utils` configuration system. Key configuration items:
+
+- `MONGO_CONNECTION_STRING` - MongoDB connection string
+- `ELASTIC_CLIENT_OPTIONS` - Elasticsearch client configuration
+- `ELASTIC_SEARCH_INDEX` - Default search index name
+- `ELASTIC_SYNC_INDEX` - Sync history index name
+- `SEARCH_API_PORT` - API server port (default: 8083)
+- `LOGGING_LEVEL` - Logging verbosity
+
+## Error Handling
+
+All endpoints return consistent error responses:
+
+- **500 Internal Server Error**: For all exceptions with empty JSON response `{}`
+- **Detailed logging**: All errors are logged internally with breadcrumb tracing
+- **Security**: Authentication and authorization errors are logged but not exposed
+
+## Contributing
+
+This project follows the [Stage0 development standards](https://github.com/agile-learning-institute/stage0/blob/main/developer_edition/docs/contributing.md) and implements [API standards](https://github.com/agile-learning-institute/stage0/blob/main/developer_edition/docs/api-standards.md) for consistency across the platform.
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details. 
