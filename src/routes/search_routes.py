@@ -1,6 +1,6 @@
 import logging
 from flask import Blueprint, request, jsonify
-from src.services.search_services import SearchServices
+from src.services.search_services import SearchServices, SearchValidationError
 from stage0_py_utils import create_flask_breadcrumb, create_flask_token
 
 logger = logging.getLogger(__name__)
@@ -19,11 +19,6 @@ def search_documents():
         query_param = request.args.get('query')
         search_param = request.args.get('search')
         
-        # Validate that at least one parameter is provided
-        if not query_param and not search_param:
-            logger.warning(f"{breadcrumb} No search parameters provided")
-            return jsonify({"error": "Either 'query' or 'search' parameter is required"}), 400
-        
         # Perform search
         results = SearchServices.search_documents(
             query_param=query_param,
@@ -32,6 +27,10 @@ def search_documents():
         
         logger.info(f"{breadcrumb} Successfully performed search with {len(results)} results")
         return jsonify(results)
+        
+    except SearchValidationError as e:
+        logger.warning(f"{breadcrumb} {str(e)}")
+        return jsonify({"error": str(e)}), 400
         
     except ValueError as e:
         logger.error(f"{breadcrumb} Invalid search parameters: {str(e)}")

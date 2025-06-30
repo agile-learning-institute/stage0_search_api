@@ -7,6 +7,10 @@ from src.utils.elastic_utils import ElasticUtils
 
 logger = logging.getLogger(__name__)
 
+class SearchValidationError(Exception):
+    """Exception raised when search parameters are invalid."""
+    pass
+
 class SearchServices:
     """Static service class for Elasticsearch search operations."""
     
@@ -23,10 +27,15 @@ class SearchServices:
             List of search results from Elasticsearch.
             
         Raises:
+            SearchValidationError: If no search parameters are provided.
             ValueError: If query parameter format is invalid.
             Exception: If search operation fails.
         """
         try:
+            # Validate that at least one parameter is provided
+            if not query_param and not search_param:
+                raise SearchValidationError("Either 'query' or 'search' parameter is required")
+            
             # Parse search parameters
             query, search_text = SearchServices._parse_search_parameters(query_param, search_param)
             

@@ -3,7 +3,7 @@ import unittest
 from unittest.mock import Mock, patch
 import urllib.parse
 
-from src.services.search_services import SearchServices
+from src.services.search_services import SearchServices, SearchValidationError
 
 class TestSearchServices(unittest.TestCase):
     
@@ -88,6 +88,15 @@ class TestSearchServices(unittest.TestCase):
         
         # Verify
         self.assertEqual(str(context.exception), "Elastic error")
+
+    def test_search_documents_no_parameters(self):
+        """Test search documents with no parameters raises SearchValidationError."""
+        # Test
+        with self.assertRaises(SearchValidationError) as context:
+            SearchServices.search_documents()
+        
+        # Verify
+        self.assertIn("Either 'query' or 'search' parameter is required", str(context.exception))
 
 if __name__ == '__main__':
     unittest.main() 
