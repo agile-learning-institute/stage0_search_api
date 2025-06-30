@@ -56,21 +56,25 @@ class TestSyncRoutes(unittest.TestCase):
     def test_sync_all_collections(self, mock_sync_all_collections):
         """Test sync all collections endpoint."""
         # Mock the service response
-        mock_result = {
-            "sync_id": "sync_123",
+        mock_results = {
+            "id": "sync_123",
             "start_time": "2024-01-01T10:00:00Z",
-            "end_time": "2024-01-01T10:05:00Z",
-            "total_synced": 500,
-            "collections": [{"name": "bots", "count": 500}]
+            "collections": [
+                {
+                    "name": "bots",
+                    "count": 500,
+                    "end_time": "2024-01-01T10:05:00Z"
+                }
+            ]
         }
-        mock_sync_all_collections.return_value = mock_result
+        mock_sync_all_collections.return_value = mock_results
         
         response = self.client.post('/api/sync')
         
         # Verify response
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.data)
-        self.assertEqual(data, mock_result)
+        self.assertEqual(data, mock_results)
         
         # Verify service was called
         mock_sync_all_collections.assert_called_once()
@@ -154,11 +158,15 @@ class TestSyncRoutes(unittest.TestCase):
         """Test sync specific collection endpoint."""
         # Mock the service response
         mock_result = {
-            "sync_id": "sync_123",
-            "collection": "bots",
-            "total_synced": 150,
+            "id": "sync_123",
             "start_time": "2024-01-01T10:00:00Z",
-            "end_time": "2024-01-01T10:02:00Z"
+            "collections": [
+                {
+                    "name": "conversations",
+                    "count": 50,
+                    "end_time": "2024-01-01T10:02:00Z"
+                }
+            ]
         }
         mock_sync_collection.return_value = mock_result
         

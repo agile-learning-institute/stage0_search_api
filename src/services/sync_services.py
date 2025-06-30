@@ -51,7 +51,9 @@ class SyncServices:
                 sync_id, start_time, total_synced, collection_results
             )
             
-            logger.info(f"Sync {sync_id} completed: {total_synced} documents in {result['duration_seconds']}s")
+            end_time = datetime.now()
+            duration = (end_time - start_time).total_seconds()
+            logger.info(f"Sync {sync_id} completed: {total_synced} documents in {duration}s")
             return result
             
         except Exception as e:
@@ -93,7 +95,7 @@ class SyncServices:
                 sync_id, collection_name, index_as, start_time, collection_result["count"]
             )
             
-            logger.info(f"Collection sync completed: {collection_result['count']} documents in {result['duration_seconds']}s")
+            logger.info(f"Collection sync completed: {collection_result['count']} documents")
             return result
             
         except Exception as e:
@@ -241,16 +243,10 @@ class SyncServices:
         total_synced: int, 
         collection_results: List[Dict]
     ) -> Dict:
-        """Build the final sync result dictionary."""
-        end_time = datetime.now()
-        duration = (end_time - start_time).total_seconds()
-        
+        """Build the final sync result dictionary matching README specification."""
         return {
-            "sync_id": sync_id,
+            "id": sync_id,
             "start_time": start_time.isoformat(),
-            "end_time": end_time.isoformat(),
-            "duration_seconds": duration,
-            "total_synced": total_synced,
             "collections": collection_results
         }
     
@@ -262,16 +258,16 @@ class SyncServices:
         start_time: datetime, 
         total_synced: int
     ) -> Dict:
-        """Build the final collection sync result dictionary."""
-        end_time = datetime.now()
-        duration = (end_time - start_time).total_seconds()
+        """Build the final collection sync result dictionary matching README specification."""
+        # For single collection sync, return the same structure as multi-collection
+        collection_result = {
+            "name": collection_name,
+            "count": total_synced,
+            "end_time": datetime.now().isoformat()
+        }
         
         return {
-            "sync_id": sync_id,
-            "collection": collection_name,
-            "index_as": index_as,
+            "id": sync_id,
             "start_time": start_time.isoformat(),
-            "end_time": end_time.isoformat(),
-            "duration_seconds": duration,
-            "total_synced": total_synced
+            "collections": [collection_result]
         } 

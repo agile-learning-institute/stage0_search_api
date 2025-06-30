@@ -355,24 +355,15 @@ components:
       description: Result of a sync operation
       type: object
       properties:
-        sync_id:
+        id:
           type: string
           example: "sync_123"
+          description: Unique sync identifier
         start_time:
           type: string
           format: date-time
           example: "2024-01-01T10:00:00Z"
-        end_time:
-          type: string
-          format: date-time
-          example: "2024-01-01T10:05:00Z"
-        duration_seconds:
-          type: number
-          format: float
-          example: 300.5
-        total_synced:
-          type: integer
-          example: 500
+          description: Sync start timestamp
         collections:
           type: array
           items:
@@ -381,22 +372,16 @@ components:
               name:
                 type: string
                 example: "bots"
+                description: Collection name
               count:
                 type: integer
-                example: 500
+                example: 150
+                description: Number of documents synced
               end_time:
                 type: string
                 format: date-time
                 example: "2024-01-01T10:05:00Z"
-        collection:
-          type: string
-          example: "bots"
-          description: Collection name (for single collection sync)
-        index_as:
-          type: string
-          nullable: true
-          example: "students"
-          description: Index collection name (for polymorphic patterns)
+                description: Collection sync completion timestamp
 
     config:
       type: object

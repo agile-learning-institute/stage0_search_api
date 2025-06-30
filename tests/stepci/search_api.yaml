@@ -126,9 +126,9 @@ tests:
         check:
           status: 200
           jsonpath:
-            "$.sync_id": "string"
-            "$.collection": "bots"
-            "$.total_synced": "number"
+            "$.id": "string"
+            "$.collections[0].name": "bots"
+            "$.collections[0].count": "number"
       
       - name: Sync collection with index_as
         http:
@@ -137,9 +137,9 @@ tests:
         check:
           status: 200
           jsonpath:
-            "$.sync_id": "string"
-            "$.collection": "conversations"
-            "$.index_as": "test_conversations"
+            "$.id": "string"
+            "$.collections[0].name": "conversations"
+            "$.collections[0].count": "number"
       
       - name: Sync invalid collection (should fail)
         http:

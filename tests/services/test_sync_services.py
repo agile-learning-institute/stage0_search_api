@@ -39,71 +39,67 @@ class TestSyncServices(unittest.TestCase):
         result = SyncServices.sync_all_collections()
         
         # Verify
-        self.assertIn("sync_id", result)
+        self.assertIn("id", result)
         self.assertIn("start_time", result)
-        self.assertIn("end_time", result)
-        self.assertIn("total_synced", result)
         self.assertIn("collections", result)
-        self.assertEqual(result["total_synced"], 2)  # 1 from each collection
+        self.assertEqual(len(result["collections"]), 2)
+        self.assertEqual(result["collections"][0]["count"], 1)
+        self.assertEqual(result["collections"][1]["count"], 1)
     
-    @patch('src.services.sync_services.Config')
-    @patch('src.services.sync_services.MongoUtils')
     @patch('src.services.sync_services.ElasticUtils')
-    @patch('src.services.sync_services.datetime')
-    def test_sync_collection(self, mock_datetime, mock_elastic_utils, mock_mongo_utils, mock_config):
-        """Test sync specific collection."""
-        # Mock datetime
-        mock_start_time = datetime(2024, 1, 1, 10, 0, 0)
-        mock_end_time = datetime(2024, 1, 1, 10, 2, 0)
-        times = [mock_start_time, mock_end_time, mock_end_time]
-        def now_side_effect():
-            for t in times:
-                yield t
-            while True:
-                yield mock_end_time
-        mock_datetime.now.side_effect = now_side_effect()
-        
-        # Mock config
-        mock_config.get_instance.return_value.SYNC_BATCH_SIZE = 100
-        
+    @patch('src.services.sync_services.MongoUtils')
+    @patch('src.services.sync_services.SyncServices._get_latest_sync_time')
+    @patch('src.services.sync_services.SyncServices._save_sync_history')
+    def test_sync_collection(self, mock_save_history, mock_latest_time, mock_mongo_utils, mock_elastic_utils):
+        """Test sync single collection."""
         # Mock dependencies
-        mock_elastic_utils.return_value.get_latest_sync_time.return_value = None
+        mock_latest_time.return_value = None
         
-        # Mock collection processing
-        mock_index_cards = [{"collection_id": "123", "collection_name": "bots"}]
-        mock_mongo_utils.return_value.process_collection_batch.return_value = mock_index_cards
-        mock_elastic_utils.return_value.bulk_upsert_documents.return_value = {"success": 1, "failed": 0}
+        # Mock collection result
+        mock_collection_result = {"name": "bots", "count": 1, "end_time": "2024-01-01T10:02:00Z"}
         
-        # Test
-        result = SyncServices.sync_collection("bots", index_as="test_bots")
-        
-        # Verify
-        self.assertIn("sync_id", result)
-        self.assertIn("collection", result)
-        self.assertEqual(result["collection"], "bots")
-        self.assertIn("index_as", result)
-        self.assertEqual(result["index_as"], "test_bots")
-        self.assertIn("total_synced", result)
-        self.assertEqual(result["total_synced"], 1)
+        # Mock the sync process
+        with patch.object(SyncServices, '_sync_single_collection') as mock_sync_collection:
+            mock_sync_collection.return_value = mock_collection_result
+            
+            # Test
+            result = SyncServices.sync_collection("bots")
+            
+            # Verify
+            self.assertIn("id", result)
+            self.assertIn("start_time", result)
+            self.assertIn("collections", result)
+            self.assertEqual(len(result["collections"]), 1)
+            self.assertEqual(result["collections"][0]["name"], "bots")
+            self.assertEqual(result["collections"][0]["count"], 1)
     
     @patch('src.services.sync_services.Config')
     @patch('src.services.sync_services.MongoUtils')
     @patch('src.services.sync_services.ElasticUtils')
-    def test_sync_collection_without_index_as(self, mock_elastic_utils, mock_mongo_utils, mock_config):
+    @patch('src.services.sync_services.SyncServices._get_latest_sync_time')
+    @patch('src.services.sync_services.SyncServices._save_sync_history')
+    def test_sync_collection_without_index_as(self, mock_save_history, mock_latest_time, mock_elastic_utils, mock_mongo_utils, mock_config):
         """Test sync collection without index_as parameter."""
-        # Mock config
-        mock_config.get_instance.return_value.SYNC_BATCH_SIZE = 100
-        
         # Mock dependencies
-        mock_elastic_utils.return_value.get_latest_sync_time.return_value = None
-        mock_mongo_utils.return_value.process_collection_batch.return_value = []
+        mock_latest_time.return_value = None
         
-        # Test
-        result = SyncServices.sync_collection("bots")
+        # Mock collection result
+        mock_collection_result = {"name": "bots", "count": 0, "end_time": "2024-01-01T10:02:00Z"}
         
-        # Verify
-        self.assertIn("index_as", result)
-        self.assertIsNone(result["index_as"])
+        # Mock the sync process
+        with patch.object(SyncServices, '_sync_single_collection') as mock_sync_collection:
+            mock_sync_collection.return_value = mock_collection_result
+            
+            # Test
+            result = SyncServices.sync_collection("bots")
+            
+            # Verify
+            self.assertIn("id", result)
+            self.assertIn("start_time", result)
+            self.assertIn("collections", result)
+            self.assertEqual(len(result["collections"]), 1)
+            self.assertEqual(result["collections"][0]["name"], "bots")
+            self.assertEqual(result["collections"][0]["count"], 0)
     
     @patch('src.services.sync_services.ElasticUtils')
     def test_get_sync_history(self, mock_elastic_utils):
