@@ -34,7 +34,10 @@ class TestSearchRoutes(unittest.TestCase):
         
         # Verify service was called correctly
         mock_search_documents.assert_called_once_with(
-            query_param=query, search_param=None
+            query_param='{"query":{"match":{"collection_name":"bots"}}}',
+            search_param=None,
+            token=unittest.mock.ANY,
+            breadcrumb=unittest.mock.ANY
         )
     
     @patch('src.services.search_services.SearchServices.search_documents')
@@ -57,7 +60,10 @@ class TestSearchRoutes(unittest.TestCase):
         
         # Verify service was called correctly
         mock_search_documents.assert_called_once_with(
-            query_param=None, search_param=search_text
+            query_param=None,
+            search_param='test bot',
+            token=unittest.mock.ANY,
+            breadcrumb=unittest.mock.ANY
         )
     
     def test_search_documents_no_parameters(self):

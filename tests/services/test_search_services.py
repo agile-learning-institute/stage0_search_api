@@ -98,5 +98,94 @@ class TestSearchServices(unittest.TestCase):
         # Verify
         self.assertIn("Either 'query' or 'search' parameter is required", str(context.exception))
 
+    @patch('src.services.search_services.ElasticUtils')
+    @patch('src.services.search_services.urllib.parse.unquote')
+    def test_search_documents_with_token_and_breadcrumb(self, mock_unquote, mock_elastic_utils):
+        """Test search documents with token and breadcrumb parameters."""
+        # Mock dependencies
+        mock_unquote.return_value = "test bot"
+        
+        # Mock elastic utils response
+        mock_results = [
+            {"collection_id": "123", "collection_name": "bots", "bots": {"name": "Test Bot"}}
+        ]
+        mock_elastic_utils.return_value.search_documents.return_value = mock_results
+        
+        # Test data
+        token = {"byUser": "test_user", "role": "user", "organizationId": "org123"}
+        breadcrumb = {"correlationId": "test_correlation", "atTime": "2024-01-01T10:00:00Z"}
+        
+        # Test
+        result = SearchServices.search_documents(
+            search_param="test_search",
+            token=token,
+            breadcrumb=breadcrumb
+        )
+        
+        # Verify
+        self.assertEqual(result, mock_results)
+        mock_unquote.assert_called_once_with("test_search")
+        mock_elastic_utils.return_value.search_documents.assert_called_once_with(
+            query=None, search_text="test bot"
+        )
+
+    @patch('src.services.search_services.ElasticUtils')
+    @patch('src.services.search_services.urllib.parse.unquote')
+    def test_search_documents_with_token_no_breadcrumb(self, mock_unquote, mock_elastic_utils):
+        """Test search documents with token but no breadcrumb."""
+        # Mock dependencies
+        mock_unquote.return_value = "test bot"
+        
+        # Mock elastic utils response
+        mock_results = [
+            {"collection_id": "123", "collection_name": "bots", "bots": {"name": "Test Bot"}}
+        ]
+        mock_elastic_utils.return_value.search_documents.return_value = mock_results
+        
+        # Test data
+        token = {"byUser": "test_user", "role": "user"}
+        
+        # Test
+        result = SearchServices.search_documents(
+            search_param="test_search",
+            token=token
+        )
+        
+        # Verify
+        self.assertEqual(result, mock_results)
+        mock_unquote.assert_called_once_with("test_search")
+        mock_elastic_utils.return_value.search_documents.assert_called_once_with(
+            query=None, search_text="test bot"
+        )
+
+    @patch('src.services.search_services.ElasticUtils')
+    @patch('src.services.search_services.urllib.parse.unquote')
+    def test_search_documents_with_breadcrumb_no_token(self, mock_unquote, mock_elastic_utils):
+        """Test search documents with breadcrumb but no token."""
+        # Mock dependencies
+        mock_unquote.return_value = "test bot"
+        
+        # Mock elastic utils response
+        mock_results = [
+            {"collection_id": "123", "collection_name": "bots", "bots": {"name": "Test Bot"}}
+        ]
+        mock_elastic_utils.return_value.search_documents.return_value = mock_results
+        
+        # Test data
+        breadcrumb = {"correlationId": "test_correlation", "atTime": "2024-01-01T10:00:00Z"}
+        
+        # Test
+        result = SearchServices.search_documents(
+            search_param="test_search",
+            breadcrumb=breadcrumb
+        )
+        
+        # Verify
+        self.assertEqual(result, mock_results)
+        mock_unquote.assert_called_once_with("test_search")
+        mock_elastic_utils.return_value.search_documents.assert_called_once_with(
+            query=None, search_text="test bot"
+        )
+
 if __name__ == '__main__':
     unittest.main() 

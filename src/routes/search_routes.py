@@ -22,7 +22,9 @@ def search_documents():
         # Perform search
         results = SearchServices.search_documents(
             query_param=query_param,
-            search_param=search_param
+            search_param=search_param,
+            token=token,
+            breadcrumb=breadcrumb
         )
         
         logger.info(f"{breadcrumb} Successfully performed search with {len(results)} results")
