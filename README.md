@@ -101,7 +101,7 @@ Supports both single collection and polymorphic patterns:
 
 ```
 stage0_search_api/
-├── src/
+├── source/
 │   ├── server.py                   # Main Flask application ✅
 │   ├── routes/
 │   │   ├── search_routes.py        # Search endpoint handlers ✅

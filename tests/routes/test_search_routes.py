@@ -2,8 +2,7 @@ import json
 import unittest
 from unittest.mock import Mock, patch
 from flask import Flask
-
-from src.routes.search_routes import search_bp
+from source.routes.search_routes import search_bp
 
 class TestSearchRoutes(unittest.TestCase):
     
@@ -14,7 +13,7 @@ class TestSearchRoutes(unittest.TestCase):
         self.client = self.app.test_client()
         self.app.config['TESTING'] = True
     
-    @patch('src.services.search_services.SearchServices.search_documents')
+    @patch('source.services.search_services.SearchServices.search_documents')
     def test_search_documents_with_query(self, mock_search_documents):
         """Test search endpoint with query parameter."""
         # Mock the service response
@@ -40,7 +39,7 @@ class TestSearchRoutes(unittest.TestCase):
             breadcrumb=unittest.mock.ANY
         )
     
-    @patch('src.services.search_services.SearchServices.search_documents')
+    @patch('source.services.search_services.SearchServices.search_documents')
     def test_search_documents_with_search_text(self, mock_search_documents):
         """Test search endpoint with search parameter."""
         # Mock the service response
@@ -75,7 +74,7 @@ class TestSearchRoutes(unittest.TestCase):
         data = json.loads(response.data)
         self.assertEqual(data, {})
     
-    @patch('src.services.search_services.SearchServices.search_documents')
+    @patch('source.services.search_services.SearchServices.search_documents')
     def test_search_documents_invalid_query(self, mock_search_documents):
         """Test search endpoint with invalid query parameter."""
         # Mock service to raise ValueError
@@ -88,7 +87,7 @@ class TestSearchRoutes(unittest.TestCase):
         data = json.loads(response.data)
         self.assertEqual(data, {})
     
-    @patch('src.services.search_services.SearchServices.search_documents')
+    @patch('source.services.search_services.SearchServices.search_documents')
     def test_search_documents_service_error(self, mock_search_documents):
         """Test search endpoint when service raises exception."""
         # Mock service to raise exception

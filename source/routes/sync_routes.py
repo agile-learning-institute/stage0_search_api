@@ -1,6 +1,6 @@
 import logging
 from flask import Blueprint, request, jsonify
-from src.services.sync_services import SyncServices
+from source.services.sync_services import SyncServices
 from stage0_py_utils import create_flask_breadcrumb, create_flask_token
 
 logger = logging.getLogger(__name__)
@@ -50,12 +50,12 @@ def set_sync_periodicity():
         data = request.get_json()
         if not data or 'period_seconds' not in data:
             logger.warning(f"{breadcrumb} Missing period_seconds in request body")
-            return jsonify({"error": "period_seconds is required in request body"}), 400
+            return jsonify({}), 500
         
         period_seconds = data['period_seconds']
         if not isinstance(period_seconds, int) or period_seconds < 0:
             logger.warning(f"{breadcrumb} Invalid period_seconds value: {period_seconds}")
-            return jsonify({"error": "period_seconds must be a non-negative integer"}), 400
+            return jsonify({}), 500
         
         result = SyncServices.set_sync_periodicity(period_seconds)
         logger.info(f"{breadcrumb} Successfully set sync periodicity to {period_seconds} seconds")
@@ -81,7 +81,7 @@ def sync_collection(collection_name):
         ]
         if collection_name not in valid_collections:
             logger.warning(f"{breadcrumb} Invalid collection name: {collection_name}")
-            return jsonify({"error": f"Invalid collection name. Must be one of: {valid_collections}"}), 400
+            return jsonify({}), 500
         
         result = SyncServices.sync_collection(collection_name, index_as=index_as)
         logger.info(f"{breadcrumb} Successfully synced collection: {collection_name}")

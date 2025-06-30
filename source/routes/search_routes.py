@@ -1,6 +1,6 @@
 import logging
 from flask import Blueprint, request, jsonify
-from src.services.search_services import SearchServices
+from source.services.search_services import SearchServices
 from stage0_py_utils import create_flask_breadcrumb, create_flask_token
 
 logger = logging.getLogger(__name__)

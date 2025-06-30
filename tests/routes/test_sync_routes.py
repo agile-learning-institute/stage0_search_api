@@ -2,8 +2,7 @@ import json
 import unittest
 from unittest.mock import Mock, patch
 from flask import Flask
-
-from src.routes.sync_routes import sync_bp
+from source.routes.sync_routes import sync_bp
 
 class TestSyncRoutes(unittest.TestCase):
     
@@ -14,7 +13,7 @@ class TestSyncRoutes(unittest.TestCase):
         self.client = self.app.test_client()
         self.app.config['TESTING'] = True
     
-    @patch('src.services.sync_services.SyncServices.get_sync_history')
+    @patch('source.services.sync_services.SyncServices.get_sync_history')
     def test_get_sync_history(self, mock_get_sync_history):
         """Test get sync history endpoint."""
         # Mock the service response
@@ -37,11 +36,11 @@ class TestSyncRoutes(unittest.TestCase):
         # Verify service was called with default limit
         mock_get_sync_history.assert_called_once_with(limit=10)
     
-    @patch('src.services.sync_services.SyncServices.get_sync_history')
+    @patch('source.services.sync_services.SyncServices.get_sync_history')
     def test_get_sync_history_with_limit(self, mock_get_sync_history):
         """Test get sync history endpoint with custom limit."""
         # Mock the service response
-        mock_history = []
+        mock_history = [{"id": "sync_123", "start_time": "2024-01-01T10:00:00Z"}]
         mock_get_sync_history.return_value = mock_history
         
         response = self.client.get('/api/sync?limit=5')
@@ -52,34 +51,24 @@ class TestSyncRoutes(unittest.TestCase):
         # Verify service was called with custom limit
         mock_get_sync_history.assert_called_once_with(limit=5)
     
-    @patch('src.services.sync_services.SyncServices.sync_all_collections')
+    @patch('source.services.sync_services.SyncServices.sync_all_collections')
     def test_sync_all_collections(self, mock_sync_all_collections):
         """Test sync all collections endpoint."""
         # Mock the service response
-        mock_results = {
-            "id": "sync_123",
-            "start_time": "2024-01-01T10:00:00Z",
-            "collections": [
-                {
-                    "name": "bots",
-                    "count": 500,
-                    "end_time": "2024-01-01T10:05:00Z"
-                }
-            ]
-        }
-        mock_sync_all_collections.return_value = mock_results
+        mock_result = {"id": "sync_123", "start_time": "2024-01-01T10:00:00Z"}
+        mock_sync_all_collections.return_value = mock_result
         
         response = self.client.post('/api/sync')
         
         # Verify response
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.data)
-        self.assertEqual(data, mock_results)
+        self.assertEqual(data, mock_result)
         
         # Verify service was called
         mock_sync_all_collections.assert_called_once()
     
-    @patch('src.services.sync_services.SyncServices.sync_all_collections')
+    @patch('source.services.sync_services.SyncServices.sync_all_collections')
     def test_sync_all_collections_service_error(self, mock_sync_all_collections):
         """Test sync all collections endpoint when service raises exception."""
         # Mock service to raise exception
@@ -92,19 +81,14 @@ class TestSyncRoutes(unittest.TestCase):
         data = json.loads(response.data)
         self.assertEqual(data, {})
     
-    @patch('src.services.sync_services.SyncServices.set_sync_periodicity')
+    @patch('source.services.sync_services.SyncServices.set_sync_periodicity')
     def test_set_sync_periodicity(self, mock_set_sync_periodicity):
         """Test set sync periodicity endpoint."""
         # Mock the service response
-        mock_result = {
-            "sync_period_seconds": 300,
-            "message": "Sync periodicity updated to 300 seconds"
-        }
+        mock_result = {"sync_period_seconds": 300, "message": "Updated"}
         mock_set_sync_periodicity.return_value = mock_result
         
-        response = self.client.put('/api/sync', 
-                                 json={"period_seconds": 300},
-                                 content_type='application/json')
+        response = self.client.put('/api/sync', json={"period_seconds": 300})
         
         # Verify response
         self.assertEqual(response.status_code, 200)
@@ -116,56 +100,40 @@ class TestSyncRoutes(unittest.TestCase):
     
     def test_set_sync_periodicity_no_body(self):
         """Test set sync periodicity endpoint with no request body."""
-        response = self.client.put('/api/sync', json={}, content_type='application/json')
-        
-        # Verify error response
-        self.assertEqual(response.status_code, 400)
-        data = json.loads(response.data)
-        self.assertIn("error", data)
-        self.assertIn("period_seconds is required", data["error"])
-    
-    def test_set_sync_periodicity_invalid_period(self):
-        """Test set sync periodicity endpoint with invalid period."""
-        response = self.client.put('/api/sync', 
-                                 json={"period_seconds": -1},
-                                 content_type='application/json')
-        
-        # Verify error response
-        self.assertEqual(response.status_code, 400)
-        data = json.loads(response.data)
-        self.assertIn("error", data)
-        self.assertIn("non-negative integer", data["error"])
-    
-    @patch('src.services.sync_services.SyncServices.set_sync_periodicity')
-    def test_set_sync_periodicity_service_error(self, mock_set_sync_periodicity):
-        """Test set sync periodicity endpoint when service raises exception."""
-        # Mock service to raise ValueError
-        mock_set_sync_periodicity.side_effect = ValueError("Invalid period")
-        
-        response = self.client.put('/api/sync', 
-                                 json={"period_seconds": 300},
-                                 content_type='application/json')
+        response = self.client.put('/api/sync')
         
         # Verify error response
         self.assertEqual(response.status_code, 500)
         data = json.loads(response.data)
         self.assertEqual(data, {})
     
-    @patch('src.services.sync_services.SyncServices.sync_collection')
+    def test_set_sync_periodicity_invalid_period(self):
+        """Test set sync periodicity endpoint with invalid period."""
+        response = self.client.put('/api/sync', json={"period_seconds": -1})
+        
+        # Verify error response
+        self.assertEqual(response.status_code, 500)
+        data = json.loads(response.data)
+        self.assertEqual(data, {})
+    
+    @patch('source.services.sync_services.SyncServices.set_sync_periodicity')
+    def test_set_sync_periodicity_service_error(self, mock_set_sync_periodicity):
+        """Test set sync periodicity endpoint when service raises exception."""
+        # Mock service to raise exception
+        mock_set_sync_periodicity.side_effect = Exception("Invalid period")
+        
+        response = self.client.put('/api/sync', json={"period_seconds": 300})
+        
+        # Verify error response
+        self.assertEqual(response.status_code, 500)
+        data = json.loads(response.data)
+        self.assertEqual(data, {})
+    
+    @patch('source.services.sync_services.SyncServices.sync_collection')
     def test_sync_collection(self, mock_sync_collection):
         """Test sync specific collection endpoint."""
         # Mock the service response
-        mock_result = {
-            "id": "sync_123",
-            "start_time": "2024-01-01T10:00:00Z",
-            "collections": [
-                {
-                    "name": "conversations",
-                    "count": 50,
-                    "end_time": "2024-01-01T10:02:00Z"
-                }
-            ]
-        }
+        mock_result = {"id": "sync_123", "collection_name": "bots"}
         mock_sync_collection.return_value = mock_result
         
         response = self.client.patch('/api/sync/bots')
@@ -178,19 +146,14 @@ class TestSyncRoutes(unittest.TestCase):
         # Verify service was called correctly
         mock_sync_collection.assert_called_once_with("bots", index_as=None)
     
-    @patch('src.services.sync_services.SyncServices.sync_collection')
+    @patch('source.services.sync_services.SyncServices.sync_collection')
     def test_sync_collection_with_index_as(self, mock_sync_collection):
         """Test sync specific collection endpoint with index_as parameter."""
         # Mock the service response
-        mock_result = {
-            "sync_id": "sync_123",
-            "collection": "bots",
-            "index_as": "students",
-            "total_synced": 50
-        }
+        mock_result = {"id": "sync_123", "collection_name": "bots"}
         mock_sync_collection.return_value = mock_result
         
-        response = self.client.patch('/api/sync/bots?index_as=students')
+        response = self.client.patch('/api/sync/bots?index_as=polymorphic')
         
         # Verify response
         self.assertEqual(response.status_code, 200)
@@ -198,19 +161,18 @@ class TestSyncRoutes(unittest.TestCase):
         self.assertEqual(data, mock_result)
         
         # Verify service was called correctly
-        mock_sync_collection.assert_called_once_with("bots", index_as="students")
+        mock_sync_collection.assert_called_once_with("bots", index_as="polymorphic")
     
     def test_sync_collection_invalid_name(self):
         """Test sync specific collection endpoint with invalid collection name."""
         response = self.client.patch('/api/sync/invalid_collection')
         
         # Verify error response
-        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.status_code, 500)
         data = json.loads(response.data)
-        self.assertIn("error", data)
-        self.assertIn("Invalid collection name", data["error"])
+        self.assertEqual(data, {})
     
-    @patch('src.services.sync_services.SyncServices.sync_collection')
+    @patch('source.services.sync_services.SyncServices.sync_collection')
     def test_sync_collection_service_error(self, mock_sync_collection):
         """Test sync specific collection endpoint when service raises exception."""
         # Mock service to raise exception
@@ -223,7 +185,7 @@ class TestSyncRoutes(unittest.TestCase):
         data = json.loads(response.data)
         self.assertEqual(data, {})
     
-    @patch('src.services.sync_services.SyncServices.get_sync_periodicity')
+    @patch('source.services.sync_services.SyncServices.get_sync_periodicity')
     def test_get_sync_periodicity(self, mock_get_sync_periodicity):
         """Test get sync periodicity endpoint."""
         # Mock the service response
@@ -240,7 +202,7 @@ class TestSyncRoutes(unittest.TestCase):
         # Verify service was called
         mock_get_sync_periodicity.assert_called_once()
     
-    @patch('src.services.sync_services.SyncServices.get_sync_periodicity')
+    @patch('source.services.sync_services.SyncServices.get_sync_periodicity')
     def test_get_sync_periodicity_service_error(self, mock_get_sync_periodicity):
         """Test get sync periodicity endpoint when service raises exception."""
         # Mock service to raise exception

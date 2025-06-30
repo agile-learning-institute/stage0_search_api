@@ -32,7 +32,7 @@ COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/pytho
 COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy application code
-COPY src/ ./src/
+COPY source/ ./source/
 
 # Create non-root user
 RUN useradd --create-home --shell /bin/bash app && \
@@ -47,4 +47,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8083/api/health || exit 1
 
 # Run the application
-CMD ["python", "src/server.py"] 
+CMD ["python", "source/server.py"] 

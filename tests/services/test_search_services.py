@@ -3,13 +3,13 @@ import unittest
 from unittest.mock import Mock, patch
 import urllib.parse
 
-from src.services.search_services import SearchServices, SearchValidationError
+from source.services.search_services import SearchServices, SearchValidationError
 
 class TestSearchServices(unittest.TestCase):
     
-    @patch('src.services.search_services.ElasticUtils')
-    @patch('src.services.search_services.urllib.parse.unquote')
-    @patch('src.services.search_services.json.loads')
+    @patch('source.services.search_services.ElasticUtils')
+    @patch('source.services.search_services.urllib.parse.unquote')
+    @patch('source.services.search_services.json.loads')
     def test_search_documents_with_query(self, mock_json_loads, mock_unquote, mock_elastic_utils):
         """Test search documents with query parameter."""
         # Mock dependencies
@@ -34,8 +34,8 @@ class TestSearchServices(unittest.TestCase):
             query=mock_query, search_text=None
         )
     
-    @patch('src.services.search_services.ElasticUtils')
-    @patch('src.services.search_services.urllib.parse.unquote')
+    @patch('source.services.search_services.ElasticUtils')
+    @patch('source.services.search_services.urllib.parse.unquote')
     def test_search_documents_with_search_text(self, mock_unquote, mock_elastic_utils):
         """Test search documents with search parameter."""
         # Mock dependencies
@@ -57,8 +57,8 @@ class TestSearchServices(unittest.TestCase):
             query=None, search_text="test bot"
         )
     
-    @patch('src.services.search_services.urllib.parse.unquote')
-    @patch('src.services.search_services.json.loads')
+    @patch('source.services.search_services.urllib.parse.unquote')
+    @patch('source.services.search_services.json.loads')
     def test_search_documents_invalid_query(self, mock_json_loads, mock_unquote):
         """Test search documents with invalid query parameter."""
         # Mock dependencies to raise exception
@@ -72,8 +72,8 @@ class TestSearchServices(unittest.TestCase):
         # Verify
         self.assertIn("Invalid query parameter format", str(context.exception))
     
-    @patch('src.services.search_services.ElasticUtils')
-    @patch('src.services.search_services.urllib.parse.unquote')
+    @patch('source.services.search_services.ElasticUtils')
+    @patch('source.services.search_services.urllib.parse.unquote')
     def test_search_documents_elastic_error(self, mock_unquote, mock_elastic_utils):
         """Test search documents when elastic utils raises exception."""
         # Mock dependencies
@@ -98,8 +98,8 @@ class TestSearchServices(unittest.TestCase):
         # Verify
         self.assertIn("Either 'query' or 'search' parameter is required", str(context.exception))
 
-    @patch('src.services.search_services.ElasticUtils')
-    @patch('src.services.search_services.urllib.parse.unquote')
+    @patch('source.services.search_services.ElasticUtils')
+    @patch('source.services.search_services.urllib.parse.unquote')
     def test_search_documents_with_token_and_breadcrumb(self, mock_unquote, mock_elastic_utils):
         """Test search documents with token and breadcrumb parameters."""
         # Mock dependencies
@@ -129,8 +129,8 @@ class TestSearchServices(unittest.TestCase):
             query=None, search_text="test bot"
         )
 
-    @patch('src.services.search_services.ElasticUtils')
-    @patch('src.services.search_services.urllib.parse.unquote')
+    @patch('source.services.search_services.ElasticUtils')
+    @patch('source.services.search_services.urllib.parse.unquote')
     def test_search_documents_with_token_no_breadcrumb(self, mock_unquote, mock_elastic_utils):
         """Test search documents with token but no breadcrumb."""
         # Mock dependencies
@@ -158,8 +158,8 @@ class TestSearchServices(unittest.TestCase):
             query=None, search_text="test bot"
         )
 
-    @patch('src.services.search_services.ElasticUtils')
-    @patch('src.services.search_services.urllib.parse.unquote')
+    @patch('source.services.search_services.ElasticUtils')
+    @patch('source.services.search_services.urllib.parse.unquote')
     def test_search_documents_with_breadcrumb_no_token(self, mock_unquote, mock_elastic_utils):
         """Test search documents with breadcrumb but no token."""
         # Mock dependencies

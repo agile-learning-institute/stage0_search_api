@@ -32,7 +32,7 @@ app.url_map.strict_slashes = False
 
 # Initialize Elasticsearch indexes
 try:
-    from src.utils.elastic_utils import ElasticUtils
+    from source.utils.elastic_utils import ElasticUtils
     elastic_utils = ElasticUtils()
     elastic_utils.initialize_indexes()
     logger.info("Elasticsearch indexes initialized successfully")
@@ -45,8 +45,8 @@ metrics = PrometheusMetrics(app, path='/api/health')
 metrics.info('app_info', 'Application info', version=config.BUILT_AT)
 
 # Register flask routes
-from src.routes.search_routes import search_bp
-from src.routes.sync_routes import sync_bp
+from source.routes.search_routes import search_bp
+from source.routes.sync_routes import sync_bp
 
 app.register_blueprint(create_config_routes(), url_prefix='/api/config')
 app.register_blueprint(search_bp, url_prefix='/api')

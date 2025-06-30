@@ -3,7 +3,7 @@ import logging
 import urllib.parse
 from typing import Dict, List, Optional
 
-from src.utils.elastic_utils import ElasticUtils
+from source.utils.elastic_utils import ElasticUtils
 
 logger = logging.getLogger(__name__)
 

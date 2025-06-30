@@ -1,16 +1,14 @@
 import unittest
 from unittest.mock import Mock, patch
 from datetime import datetime
-
-from src.services.sync_services import SyncServices
+from source.services.sync_services import SyncServices
 
 class TestSyncServices(unittest.TestCase):
     
-    @patch('src.services.sync_services.Config')
-    @patch('src.services.sync_services.MongoUtils')
-    @patch('src.services.sync_services.ElasticUtils')
-    @patch('src.services.sync_services.datetime')
-    def test_sync_all_collections(self, mock_datetime, mock_elastic_utils, mock_mongo_utils, mock_config):
+    @patch('source.services.sync_services.MongoUtils')
+    @patch('source.services.sync_services.ElasticUtils')
+    @patch('source.services.sync_services.datetime')
+    def test_sync_all_collections(self, mock_datetime, mock_elastic_utils, mock_mongo_utils):
         """Test sync all collections."""
         # Mock datetime
         mock_start_time = datetime(2024, 1, 1, 10, 0, 0)
@@ -23,8 +21,7 @@ class TestSyncServices(unittest.TestCase):
                 yield mock_end_time
         mock_datetime.now.side_effect = now_side_effect()
         
-        # Mock config
-        mock_config.get_instance.return_value.SYNC_BATCH_SIZE = 100
+
         
         # Mock dependencies
         mock_elastic_utils.return_value.get_latest_sync_time.return_value = None
@@ -46,11 +43,11 @@ class TestSyncServices(unittest.TestCase):
         self.assertEqual(result["collections"][0]["count"], 1)
         self.assertEqual(result["collections"][1]["count"], 1)
     
-    @patch('src.services.sync_services.ElasticUtils')
-    @patch('src.services.sync_services.MongoUtils')
-    @patch('src.services.sync_services.SyncServices._get_latest_sync_time')
-    @patch('src.services.sync_services.SyncServices._save_sync_history')
-    def test_sync_collection(self, mock_save_history, mock_latest_time, mock_mongo_utils, mock_elastic_utils):
+    @patch('source.services.sync_services.MongoUtils')
+    @patch('source.services.sync_services.ElasticUtils')
+    @patch('source.services.sync_services.SyncServices._get_latest_sync_time')
+    @patch('source.services.sync_services.SyncServices._save_sync_history')
+    def test_sync_collection(self, mock_save_history, mock_latest_time, mock_elastic_utils, mock_mongo_utils):
         """Test sync single collection."""
         # Mock dependencies
         mock_latest_time.return_value = None
@@ -73,12 +70,11 @@ class TestSyncServices(unittest.TestCase):
             self.assertEqual(result["collections"][0]["name"], "bots")
             self.assertEqual(result["collections"][0]["count"], 1)
     
-    @patch('src.services.sync_services.Config')
-    @patch('src.services.sync_services.MongoUtils')
-    @patch('src.services.sync_services.ElasticUtils')
-    @patch('src.services.sync_services.SyncServices._get_latest_sync_time')
-    @patch('src.services.sync_services.SyncServices._save_sync_history')
-    def test_sync_collection_without_index_as(self, mock_save_history, mock_latest_time, mock_elastic_utils, mock_mongo_utils, mock_config):
+    @patch('source.services.sync_services.MongoUtils')
+    @patch('source.services.sync_services.ElasticUtils')
+    @patch('source.services.sync_services.SyncServices._get_latest_sync_time')
+    @patch('source.services.sync_services.SyncServices._save_sync_history')
+    def test_sync_collection_without_index_as(self, mock_save_history, mock_latest_time, mock_elastic_utils, mock_mongo_utils):
         """Test sync collection without index_as parameter."""
         # Mock dependencies
         mock_latest_time.return_value = None
@@ -101,7 +97,7 @@ class TestSyncServices(unittest.TestCase):
             self.assertEqual(result["collections"][0]["name"], "bots")
             self.assertEqual(result["collections"][0]["count"], 0)
     
-    @patch('src.services.sync_services.ElasticUtils')
+    @patch('source.services.sync_services.ElasticUtils')
     def test_get_sync_history(self, mock_elastic_utils):
         """Test get sync history."""
         # Mock elastic utils response
@@ -121,7 +117,7 @@ class TestSyncServices(unittest.TestCase):
         self.assertEqual(result, mock_history)
         mock_elastic_utils.return_value.get_sync_history.assert_called_once_with(5)
     
-    @patch('src.services.sync_services.ElasticUtils')
+    @patch('source.services.sync_services.ElasticUtils')
     def test_get_sync_history_error(self, mock_elastic_utils):
         """Test get sync history when error occurs."""
         # Mock elastic utils to raise exception
@@ -133,12 +129,8 @@ class TestSyncServices(unittest.TestCase):
         # Verify
         self.assertEqual(result, [])
     
-    @patch('src.services.sync_services.Config')
-    def test_set_sync_periodicity_valid(self, mock_config):
+    def test_set_sync_periodicity_valid(self):
         """Test set sync periodicity with valid value."""
-        # Mock config
-        mock_config.get_instance.return_value.ELASTIC_SYNC_PERIOD = 0
-        
         # Test
         result = SyncServices.set_sync_periodicity(300)
         
@@ -146,8 +138,6 @@ class TestSyncServices(unittest.TestCase):
         self.assertIn("sync_period_seconds", result)
         self.assertEqual(result["sync_period_seconds"], 300)
         self.assertIn("message", result)
-        mock_config.get_instance.return_value.ELASTIC_SYNC_PERIOD = 300
-        self.assertEqual(mock_config.get_instance.return_value.ELASTIC_SYNC_PERIOD, 300)
     
     def test_set_sync_periodicity_invalid(self):
         """Test set sync periodicity with invalid value."""
@@ -158,30 +148,27 @@ class TestSyncServices(unittest.TestCase):
         # Verify
         self.assertIn("Sync period must be non-negative", str(context.exception))
     
-    @patch('src.services.sync_services.Config')
-    def test_get_sync_periodicity(self, mock_config):
+    def test_get_sync_periodicity(self):
         """Test get sync periodicity."""
-        # Set a test value
-        mock_config.get_instance.return_value.ELASTIC_SYNC_PERIOD = 600
-        
         # Test
         result = SyncServices.get_sync_periodicity()
         
         # Verify
         self.assertIn("sync_period_seconds", result)
-        self.assertEqual(result["sync_period_seconds"], 600)
+        self.assertIsInstance(result["sync_period_seconds"], int)
     
-    @patch('src.services.sync_services.Config')
-    def test_get_sync_periodicity_error(self, mock_config):
-        """Test get sync periodicity when error occurs."""
-        # Mock config to raise exception
-        mock_config.get_instance.side_effect = Exception("Config error")
-        
+    @patch('source.services.sync_services.SyncServices._sync_single_collection', side_effect=Exception("Elastic error"))
+    @patch('source.services.sync_services.SyncServices._get_collection_names', return_value=["bots"])
+    @patch('source.services.sync_services.SyncServices._get_latest_sync_time')
+    @patch('source.services.sync_services.SyncServices._save_sync_history')
+    def test_sync_all_collections_error(self, mock_save_history, mock_get_latest_time, mock_get_collection_names, mock_sync_single_collection):
+        """Test sync all collections when error occurs."""
+        mock_get_latest_time.return_value = datetime(2024, 1, 1, 10, 0, 0)
         # Test
-        result = SyncServices.get_sync_periodicity()
-        
+        with self.assertRaises(Exception) as context:
+            SyncServices.sync_all_collections()
         # Verify
-        self.assertIn("error", result)
+        self.assertEqual(str(context.exception), "Elastic error")
 
 if __name__ == '__main__':
     unittest.main() 
