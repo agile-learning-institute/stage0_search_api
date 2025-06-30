@@ -1,0 +1,484 @@
+openapi: 3.0.3
+info:
+  title: Stage0 Search API
+  description: |
+    A polymorphic search API that indexes MongoDB collections into Elasticsearch.
+    Provides search capabilities across multiple collections with support for both
+    simple text search and complex Elasticsearch queries.
+  version: 1.0.0
+  contact:
+    name: Stage0 Development Team
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:5000
+    description: Development server
+  - url: https://api.stage0.example.com
+    description: Production server
+
+paths:
+  /api/search:
+    get:
+      summary: Search documents
+      description: |
+        Search documents using either a simple text search or a complex Elasticsearch query.
+        - Use `search` parameter for simple text search across all fields
+        - Use `query` parameter for complex Elasticsearch queries (URL-encoded JSON)
+      tags:
+        - Search
+      parameters:
+        - name: search
+          in: query
+          description: Simple text search across all fields
+          required: false
+          schema:
+            type: string
+            example: "test bot"
+        - name: query
+          in: query
+          description: URL-encoded JSON Elasticsearch query
+          required: false
+          schema:
+            type: string
+            example: "%7B%22query%22%3A%7B%22match%22%3A%7B%22collection_name%22%3A%22bots%22%7D%7D%7D"
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: true
+                  example:
+                    collection_id: "123"
+                    collection_name: "bots"
+                    bots:
+                      name: "Test Bot"
+                      description: "A test bot"
+        '400':
+          description: Bad request - missing parameters or invalid query format
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Either 'query' or 'search' parameter is required"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    error:
+                      type: string
+                      example: "Failed to perform search"
+                    error_id:
+                      type: string
+                      example: "SEARCH-001"
+                    message:
+                      type: string
+                      example: "An error occurred during search"
+
+  /api/search/stats:
+    get:
+      summary: Get search statistics
+      description: Retrieve search index statistics and status information
+      tags:
+        - Search
+      responses:
+        '200':
+          description: Search statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  search_index:
+                    type: string
+                    example: "stage0_search"
+                  status:
+                    type: string
+                    example: "active"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    error:
+                      type: string
+                      example: "Failed to get search stats"
+                    error_id:
+                      type: string
+                      example: "SEARCH-002"
+                    message:
+                      type: string
+                      example: "An error occurred retrieving stats"
+
+  /api/sync:
+    get:
+      summary: Get sync history
+      description: Retrieve synchronization history from Elasticsearch
+      tags:
+        - Sync
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of history entries to return
+          required: false
+          schema:
+            type: integer
+            default: 10
+            minimum: 1
+            maximum: 100
+            example: 10
+      responses:
+        '200':
+          description: Sync history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                      example: "sync_123"
+                    start_time:
+                      type: string
+                      format: date-time
+                      example: "2024-01-01T10:00:00Z"
+                    collections:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          name:
+                            type: string
+                            example: "bots"
+                          count:
+                            type: integer
+                            example: 150
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    error:
+                      type: string
+                      example: "Failed to get sync history"
+                    error_id:
+                      type: string
+                      example: "SYNC-001"
+                    message:
+                      type: string
+                      example: "An error occurred retrieving history"
+
+    post:
+      summary: Sync all collections
+      description: Perform one-time batch sync from MongoDB to Elasticsearch for all collections
+      tags:
+        - Sync
+      responses:
+        '200':
+          description: Sync results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sync_id:
+                    type: string
+                    example: "sync_123"
+                  start_time:
+                    type: string
+                    format: date-time
+                    example: "2024-01-01T10:00:00Z"
+                  end_time:
+                    type: string
+                    format: date-time
+                    example: "2024-01-01T10:05:00Z"
+                  duration_seconds:
+                    type: number
+                    format: float
+                    example: 300.5
+                  total_synced:
+                    type: integer
+                    example: 500
+                  collections:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                          example: "bots"
+                        count:
+                          type: integer
+                          example: 500
+                        end_time:
+                          type: string
+                          format: date-time
+                          example: "2024-01-01T10:05:00Z"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    error:
+                      type: string
+                      example: "Failed to sync all collections"
+                    error_id:
+                      type: string
+                      example: "SYNC-002"
+                    message:
+                      type: string
+                      example: "An error occurred during sync"
+
+    put:
+      summary: Set sync periodicity
+      description: Set the batch sync periodicity (stored in memory)
+      tags:
+        - Sync
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - period_seconds
+              properties:
+                period_seconds:
+                  type: integer
+                  minimum: 0
+                  description: Sync period in seconds (0 to disable periodic sync)
+                  example: 300
+      responses:
+        '200':
+          description: Sync periodicity updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sync_period_seconds:
+                    type: integer
+                    example: 300
+                  message:
+                    type: string
+                    example: "Sync periodicity updated to 300 seconds"
+        '400':
+          description: Bad request - invalid period or missing parameter
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "period_seconds is required in request body"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    error:
+                      type: string
+                      example: "Failed to set sync periodicity"
+                    error_id:
+                      type: string
+                      example: "SYNC-003"
+                    message:
+                      type: string
+                      example: "An error occurred setting periodicity"
+
+  /api/sync/{collection_name}:
+    patch:
+      summary: Sync specific collection
+      description: Upsert index cards from a specific collection with optional polymorphic indexing
+      tags:
+        - Sync
+      parameters:
+        - name: collection_name
+          in: path
+          required: true
+          description: Name of the collection to sync
+          schema:
+            type: string
+            enum: [bots, chains, conversations, workshops, exercises]
+            example: "bots"
+        - name: index_as
+          in: query
+          required: false
+          description: Optional collection name to use for indexing (for polymorphic patterns)
+          schema:
+            type: string
+            example: "students"
+      responses:
+        '200':
+          description: Collection sync results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sync_id:
+                    type: string
+                    example: "sync_123"
+                  collection:
+                    type: string
+                    example: "bots"
+                  index_as:
+                    type: string
+                    nullable: true
+                    example: "students"
+                  start_time:
+                    type: string
+                    format: date-time
+                    example: "2024-01-01T10:00:00Z"
+                  end_time:
+                    type: string
+                    format: date-time
+                    example: "2024-01-01T10:02:00Z"
+                  duration_seconds:
+                    type: number
+                    format: float
+                    example: 120.5
+                  total_synced:
+                    type: integer
+                    example: 150
+        '400':
+          description: Bad request - invalid collection name
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Invalid collection name. Must be one of: bots, chains, conversations, workshops, exercises"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    error:
+                      type: string
+                      example: "Failed to sync collection"
+                    error_id:
+                      type: string
+                      example: "SYNC-004"
+                    message:
+                      type: string
+                      example: "An error occurred syncing collection"
+
+  /api/sync/periodicity:
+    get:
+      summary: Get sync periodicity
+      description: Get the current sync periodicity setting
+      tags:
+        - Sync
+      responses:
+        '200':
+          description: Current sync periodicity
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sync_period_seconds:
+                    type: integer
+                    example: 600
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    error:
+                      type: string
+                      example: "Failed to get sync periodicity"
+                    error_id:
+                      type: string
+                      example: "SYNC-005"
+                    message:
+                      type: string
+                      example: "An error occurred retrieving periodicity"
+
+  /api/config:
+    get:
+      summary: Get configuration
+      description: Retrieve current API configuration
+      tags:
+        - Configuration
+      responses:
+        '200':
+          description: Configuration data
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+components:
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+        error_id:
+          type: string
+          description: Unique error identifier
+        message:
+          type: string
+          description: Detailed error message
+
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API key for authentication
+
+tags:
+  - name: Search
+    description: Search operations for documents
+  - name: Sync
+    description: MongoDB to Elasticsearch synchronization operations
+  - name: Configuration
+    description: API configuration management 

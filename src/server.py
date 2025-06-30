@@ -52,20 +52,6 @@ app.register_blueprint(create_config_routes(), url_prefix='/api/config')
 app.register_blueprint(search_bp, url_prefix='/api')
 app.register_blueprint(sync_bp, url_prefix='/api')
 
-# Add root endpoint
-@app.route('/')
-def root():
-    return {
-        "service": "stage0_search_api",
-        "version": "0.1.0",
-        "endpoints": {
-            "search": "/api/search",
-            "sync": "/api/sync",
-            "health": "/api/health",
-            "config": "/api/config"
-        }
-    }
-
 logger.info(f"============= Routes Registered ===============")
 
 # Start the server (only when run directly, not when imported by Gunicorn)
