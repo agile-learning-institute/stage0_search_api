@@ -9,25 +9,64 @@ from stage0_py_utils import Config
 
 logger = logging.getLogger(__name__)
 
+class SyncValidationError(Exception):
+    """Exception raised when sync parameters are invalid."""
+    pass
+
+class SyncRBACError(Exception):
+    """Exception raised when user lacks required permissions for sync operations."""
+    pass
+
 class SyncServices:
     """Static service class for MongoDB to Elasticsearch synchronization operations."""
     
     @staticmethod
-    def sync_all_collections() -> Dict:
+    def _validate_admin_access(token: Optional[Dict], breadcrumb: Optional[Dict]) -> None:
+        """
+        Validate that the user has admin access for sync operations.
+        
+        Args:
+            token: User token containing authentication and authorization information.
+            breadcrumb: Request breadcrumb for logging and tracing.
+            
+        Raises:
+            SyncRBACError: If user lacks admin role.
+        """
+        if not token:
+            logger.error(f"{breadcrumb} No token provided for sync operation")
+            raise SyncRBACError("Authentication token required for sync operations")
+        
+        roles = token.get('roles', [])
+        if 'admin' not in roles:
+            logger.warning(f"{breadcrumb} User {token.get('user_id', 'unknown')} lacks admin role for sync operation. Roles: {roles}")
+            raise SyncRBACError("Admin role required for sync operations")
+        
+        logger.info(f"{breadcrumb} Admin access validated for user: {token.get('user_id', 'unknown')}")
+    
+    @staticmethod
+    def sync_all_collections(token: Optional[Dict] = None, breadcrumb: Optional[Dict] = None) -> Dict:
         """
         Sync all collections from MongoDB to Elasticsearch.
         
+        Args:
+            token: User token containing authentication and authorization information.
+            breadcrumb: Request breadcrumb for logging and tracing.
+            
         Returns:
             Dict containing sync results with sync_id, timing, and collection statistics.
             
         Raises:
+            SyncRBACError: If user lacks admin role.
             Exception: If sync operation fails.
         """
         try:
+            # Validate admin access
+            SyncServices._validate_admin_access(token, breadcrumb)
+            
             start_time = datetime.now()
             sync_id = str(uuid.uuid4())
             
-            logger.info(f"Starting sync {sync_id} at {start_time}")
+            logger.info(f"{breadcrumb} Starting sync {sync_id} at {start_time}")
             
             # Get latest sync time and collection names
             latest_sync_time = SyncServices._get_latest_sync_time()
@@ -38,7 +77,7 @@ class SyncServices:
             total_synced = 0
             
             for collection_name in collection_names:
-                logger.info(f"Processing collection: {collection_name}")
+                logger.info(f"{breadcrumb} Processing collection: {collection_name}")
                 collection_result = SyncServices._sync_single_collection(
                     collection_name, latest_sync_time
                 )
@@ -53,33 +92,40 @@ class SyncServices:
             
             end_time = datetime.now()
             duration = (end_time - start_time).total_seconds()
-            logger.info(f"Sync {sync_id} completed: {total_synced} documents in {duration}s")
+            logger.info(f"{breadcrumb} Sync {sync_id} completed: {total_synced} documents in {duration}s")
             return result
             
         except Exception as e:
-            logger.error(f"Error in sync_all_collections: {e}")
+            logger.error(f"{breadcrumb} Error in sync_all_collections: {e}")
             raise
     
     @staticmethod
-    def sync_collection(collection_name: str, index_as: Optional[str] = None) -> Dict:
+    def sync_collection(collection_name: str, token: Optional[Dict] = None, 
+                       breadcrumb: Optional[Dict] = None, index_as: Optional[str] = None) -> Dict:
         """
         Sync a specific collection from MongoDB to Elasticsearch.
         
         Args:
             collection_name: Name of the collection to sync.
+            token: User token containing authentication and authorization information.
+            breadcrumb: Request breadcrumb for logging and tracing.
             index_as: Optional collection name to use for indexing (for polymorphic patterns).
             
         Returns:
             Dict containing sync results for the specific collection.
             
         Raises:
+            SyncRBACError: If user lacks admin role.
             Exception: If sync operation fails.
         """
         try:
+            # Validate admin access
+            SyncServices._validate_admin_access(token, breadcrumb)
+            
             start_time = datetime.now()
             sync_id = str(uuid.uuid4())
             
-            logger.info(f"Starting sync for collection {collection_name} (index_as: {index_as})")
+            logger.info(f"{breadcrumb} Starting sync for collection {collection_name} (index_as: {index_as})")
             
             # Get latest sync time
             latest_sync_time = SyncServices._get_latest_sync_time()
@@ -95,45 +141,65 @@ class SyncServices:
                 sync_id, collection_name, index_as, start_time, collection_result["count"]
             )
             
-            logger.info(f"Collection sync completed: {collection_result['count']} documents")
+            logger.info(f"{breadcrumb} Collection sync completed: {collection_result['count']} documents")
             return result
             
         except Exception as e:
-            logger.error(f"Error in sync_collection: {e}")
+            logger.error(f"{breadcrumb} Error in sync_collection: {e}")
             raise
     
     @staticmethod
-    def get_sync_history(limit: int = 10) -> List[Dict]:
+    def get_sync_history(limit: int = 10, token: Optional[Dict] = None, 
+                        breadcrumb: Optional[Dict] = None) -> List[Dict]:
         """
         Get sync history from Elasticsearch.
         
         Args:
             limit: Maximum number of history entries to return.
+            token: User token containing authentication and authorization information.
+            breadcrumb: Request breadcrumb for logging and tracing.
             
         Returns:
             List of sync history entries.
+            
+        Raises:
+            SyncRBACError: If user lacks admin role.
         """
         try:
+            # Validate admin access
+            SyncServices._validate_admin_access(token, breadcrumb)
+            
+            logger.info(f"{breadcrumb} Getting sync history with limit: {limit}")
             return ElasticUtils().get_sync_history(limit)
+        except SyncRBACError:
+            # Re-raise RBAC errors
+            raise
         except Exception as e:
-            logger.error(f"Error getting sync history: {e}")
+            logger.error(f"{breadcrumb} Error getting sync history: {e}")
             return []
     
     @staticmethod
-    def set_sync_periodicity(period_seconds: int) -> Dict:
+    def set_sync_periodicity(period_seconds: int, token: Optional[Dict] = None, 
+                           breadcrumb: Optional[Dict] = None) -> Dict:
         """
         Set the sync periodicity (stored in memory).
         
         Args:
             period_seconds: Sync period in seconds.
+            token: User token containing authentication and authorization information.
+            breadcrumb: Request breadcrumb for logging and tracing.
             
         Returns:
             Dict containing the updated sync period.
             
         Raises:
             ValueError: If period_seconds is negative.
+            SyncRBACError: If user lacks admin role.
         """
         try:
+            # Validate admin access
+            SyncServices._validate_admin_access(token, breadcrumb)
+            
             if period_seconds < 0:
                 raise ValueError("Sync period must be non-negative")
             
@@ -141,7 +207,7 @@ class SyncServices:
             config = Config.get_instance()
             config.ELASTIC_SYNC_PERIOD = period_seconds
             
-            logger.info(f"Sync periodicity set to {period_seconds} seconds")
+            logger.info(f"{breadcrumb} Sync periodicity set to {period_seconds} seconds")
             
             return {
                 "sync_period_seconds": period_seconds,
@@ -149,24 +215,39 @@ class SyncServices:
             }
             
         except Exception as e:
-            logger.error(f"Error setting sync periodicity: {e}")
+            logger.error(f"{breadcrumb} Error setting sync periodicity: {e}")
             raise
     
     @staticmethod
-    def get_sync_periodicity() -> Dict:
+    def get_sync_periodicity(token: Optional[Dict] = None, 
+                           breadcrumb: Optional[Dict] = None) -> Dict:
         """
         Get the current sync periodicity.
         
+        Args:
+            token: User token containing authentication and authorization information.
+            breadcrumb: Request breadcrumb for logging and tracing.
+            
         Returns:
             Dict containing the current sync period.
+            
+        Raises:
+            SyncRBACError: If user lacks admin role.
         """
         try:
+            # Validate admin access
+            SyncServices._validate_admin_access(token, breadcrumb)
+            
             config = Config.get_instance()
+            logger.info(f"{breadcrumb} Retrieved sync periodicity: {config.ELASTIC_SYNC_PERIOD} seconds")
             return {
                 "sync_period_seconds": config.ELASTIC_SYNC_PERIOD
             }
+        except SyncRBACError:
+            # Re-raise RBAC errors
+            raise
         except Exception as e:
-            logger.error(f"Error getting sync periodicity: {e}")
+            logger.error(f"{breadcrumb} Error getting sync periodicity: {e}")
             return {"error": str(e)}
     
     # Private helper methods

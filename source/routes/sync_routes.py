@@ -1,6 +1,6 @@
 import logging
 from flask import Blueprint, request, jsonify
-from source.services.sync_services import SyncServices
+from source.services.sync_services import SyncServices, SyncRBACError
 from stage0_py_utils import create_flask_breadcrumb, create_flask_token
 
 logger = logging.getLogger(__name__)
@@ -15,9 +15,12 @@ def get_sync_history():
         token = create_flask_token()
         breadcrumb = create_flask_breadcrumb(token)
         limit = request.args.get('limit', 10, type=int)
-        history = SyncServices.get_sync_history(limit=limit)
+        history = SyncServices.get_sync_history(limit=limit, token=token, breadcrumb=breadcrumb)
         logger.info(f"{breadcrumb} Successfully retrieved sync history")
         return jsonify(history)
+    except SyncRBACError as e:
+        logger.error(f"RBAC error in get_sync_history: {str(e)}")
+        return jsonify({}), 500
     except Exception as e:
         logger.error(f"Sync history error: {str(e)}")
         return jsonify({}), 500
@@ -28,9 +31,12 @@ def sync_all_collections():
     try:
         token = create_flask_token()
         breadcrumb = create_flask_breadcrumb(token)
-        result = SyncServices.sync_all_collections()
+        result = SyncServices.sync_all_collections(token=token, breadcrumb=breadcrumb)
         logger.info(f"{breadcrumb} Successfully synced all collections")
         return jsonify(result)
+    except SyncRBACError as e:
+        logger.error(f"RBAC error in sync_all_collections: {str(e)}")
+        return jsonify({}), 500
     except Exception as e:
         logger.error(f"Sync all collections error: {str(e)}")
         return jsonify({}), 500
@@ -50,9 +56,12 @@ def set_sync_periodicity():
         if not isinstance(period_seconds, int) or period_seconds < 0:
             logger.warning(f"{breadcrumb} Invalid period_seconds value: {period_seconds}")
             return jsonify({}), 500
-        result = SyncServices.set_sync_periodicity(period_seconds)
+        result = SyncServices.set_sync_periodicity(period_seconds, token=token, breadcrumb=breadcrumb)
         logger.info(f"{breadcrumb} Successfully set sync periodicity to {period_seconds} seconds")
         return jsonify(result)
+    except SyncRBACError as e:
+        logger.error(f"RBAC error in set_sync_periodicity: {str(e)}")
+        return jsonify({}), 500
     except Exception as e:
         logger.error(f"Set sync periodicity error: {str(e)}")
         return jsonify({}), 500
@@ -72,9 +81,12 @@ def sync_collection(collection_name):
         if collection_name not in valid_collections:
             logger.warning(f"{breadcrumb} Invalid collection name: {collection_name}")
             return jsonify({}), 500
-        result = SyncServices.sync_collection(collection_name, index_as=index_as)
+        result = SyncServices.sync_collection(collection_name, token=token, breadcrumb=breadcrumb, index_as=index_as)
         logger.info(f"{breadcrumb} Successfully synced collection: {collection_name}")
         return jsonify(result)
+    except SyncRBACError as e:
+        logger.error(f"RBAC error in sync_collection: {str(e)}")
+        return jsonify({}), 500
     except Exception as e:
         logger.error(f"Sync collection error: {str(e)}")
         return jsonify({}), 500
@@ -85,9 +97,12 @@ def get_sync_periodicity():
     try:
         token = create_flask_token()
         breadcrumb = create_flask_breadcrumb(token)
-        result = SyncServices.get_sync_periodicity()
+        result = SyncServices.get_sync_periodicity(token=token, breadcrumb=breadcrumb)
         logger.info(f"{breadcrumb} Successfully retrieved sync periodicity")
         return jsonify(result)
+    except SyncRBACError as e:
+        logger.error(f"RBAC error in get_sync_periodicity: {str(e)}")
+        return jsonify({}), 500
     except Exception as e:
         logger.error(f"Get sync periodicity error: {str(e)}")
         return jsonify({}), 500 
