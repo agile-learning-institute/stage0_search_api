@@ -1,0 +1,174 @@
+version: "1.1"
+name: stage0_search_api
+tests:
+  - name: Health Check
+    steps:
+      - name: Check health endpoint
+        http:
+          url: http://localhost:8083/api/health
+          method: GET
+        check:
+          status: 200
+          jsonpath:
+            "$.status": "healthy"
+            "$.service": "stage0_search_api"
+  
+  - name: Config Endpoint
+    steps:
+      - name: Check config endpoint
+        http:
+          url: http://localhost:8083/api/config
+          method: GET
+        check:
+          status: 200
+          jsonpath:
+            "$.config_items": "array"
+            "$.versions": "array"
+            "$.enumerators": "object"
+            "$.token": "object"
+  
+  - name: Search Endpoints
+    steps:
+      - name: Search with text parameter
+        http:
+          url: http://localhost:8083/api/search?search=test
+          method: GET
+        check:
+          status: 200
+          jsonpath:
+            "$": "array"
+      
+      - name: Search with query parameter
+        http:
+          url: http://localhost:8083/api/search?query=%7B%22query%22%3A%7B%22match_all%22%3A%7B%7D%7D%7D
+          method: GET
+        check:
+          status: 200
+          jsonpath:
+            "$": "array"
+      
+      - name: Search without parameters (should fail)
+        http:
+          url: http://localhost:8083/api/search
+          method: GET
+        check:
+          status: 400
+          jsonpath:
+            "$.error": "string"
+      
+      - name: Search stats
+        http:
+          url: http://localhost:8083/api/search/stats
+          method: GET
+        check:
+          status: 200
+          jsonpath:
+            "$.search_index": "string"
+            "$.status": "string"
+  
+  - name: Sync Endpoints
+    steps:
+      - name: Get sync history
+        http:
+          url: http://localhost:8083/api/sync
+          method: GET
+        check:
+          status: 200
+          jsonpath:
+            "$": "array"
+      
+      - name: Get sync history with limit
+        http:
+          url: http://localhost:8083/api/sync?limit=5
+          method: GET
+        check:
+          status: 200
+          jsonpath:
+            "$": "array"
+      
+      - name: Get sync periodicity
+        http:
+          url: http://localhost:8083/api/sync/periodicity
+          method: GET
+        check:
+          status: 200
+          jsonpath:
+            "$.sync_period_seconds": "number"
+      
+      - name: Set sync periodicity
+        http:
+          url: http://localhost:8083/api/sync
+          method: PUT
+          headers:
+            Content-Type: application/json
+          body: '{"period_seconds": 300}'
+        check:
+          status: 200
+          jsonpath:
+            "$.sync_period_seconds": 300
+            "$.message": "string"
+      
+      - name: Set sync periodicity without body (should fail)
+        http:
+          url: http://localhost:8083/api/sync
+          method: PUT
+        check:
+          status: 400
+          jsonpath:
+            "$.error": "string"
+      
+      - name: Set sync periodicity with invalid value (should fail)
+        http:
+          url: http://localhost:8083/api/sync
+          method: PUT
+          headers:
+            Content-Type: application/json
+          body: '{"period_seconds": -1}'
+        check:
+          status: 400
+          jsonpath:
+            "$.error": "string"
+      
+      - name: Sync specific collection
+        http:
+          url: http://localhost:8083/api/sync/bots
+          method: PATCH
+        check:
+          status: 200
+          jsonpath:
+            "$.sync_id": "string"
+            "$.collection": "bots"
+            "$.total_synced": "number"
+      
+      - name: Sync collection with index_as
+        http:
+          url: http://localhost:8083/api/sync/conversations?index_as=test_conversations
+          method: PATCH
+        check:
+          status: 200
+          jsonpath:
+            "$.sync_id": "string"
+            "$.collection": "conversations"
+            "$.index_as": "test_conversations"
+      
+      - name: Sync invalid collection (should fail)
+        http:
+          url: http://localhost:8083/api/sync/invalid_collection
+          method: PATCH
+        check:
+          status: 400
+          jsonpath:
+            "$.error": "string"
+  
+  - name: Root Endpoint
+    steps:
+      - name: Check root endpoint
+        http:
+          url: http://localhost:8083/
+          method: GET
+        check:
+          status: 200
+          jsonpath:
+            "$.service": "stage0_search_api"
+            "$.version": "string"
+            "$.endpoints": "object" 

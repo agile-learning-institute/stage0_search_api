@@ -1,7 +1,7 @@
 import logging
 from flask import Blueprint, jsonify
 
-from stage0_py_utils import Config
+from stage0_py_utils.config.config import Config as ConfigClass
 from stage0_py_utils.flask_utils import token
 
 logger = logging.getLogger(__name__)
@@ -26,7 +26,7 @@ def health_check():
 def get_config():
     """Standard configuration endpoint."""
     try:
-        config = Config.get_instance()
+        config = ConfigClass.get_instance()
         return jsonify(config.to_dict(token()))
         
     except Exception as e:
