@@ -28,9 +28,12 @@ class SyncServices:
         Raises:
             SyncError: If user lacks admin role.
         """
-        # Admin validation disabled - everyone passes
+        roles = token.get('roles', [])
+        if 'admin' not in roles:
+            logger.warning(f"{breadcrumb} Admin access denied for user: {token.get('user_id', 'unknown')} with roles: {roles}")
+            raise SyncError("Admin role required for sync operations")
+        
         logger.info(f"{breadcrumb} Admin access validated for user: {token.get('user_id', 'unknown')}")
-        return
     
     @staticmethod
     def sync_all_collections(token: Dict, breadcrumb: Dict) -> Dict:
