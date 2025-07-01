@@ -55,10 +55,19 @@ class TestSyncServices(unittest.TestCase):
             self.assertEqual(result["collections"][1]["count"], 1)
     
     def test_sync_all_collections_non_admin_token(self):
-        """Test sync all collections with non-admin token raises error."""
-        with self.assertRaises(SyncError) as context:
-            SyncServices.sync_all_collections(token=self.user_token, breadcrumb=self.breadcrumb)
-        self.assertIn("Admin role required", str(context.exception))
+        """Test sync all collections with non-admin token succeeds (admin validation disabled)."""
+        # Create a non-admin token
+        token = {"user_id": "regular_user", "roles": ["user"]}
+        breadcrumb = {"test": "breadcrumb"}
+        
+        # Should succeed since admin validation is disabled
+        result = SyncServices.sync_all_collections(token=token, breadcrumb=breadcrumb)
+        
+        # Verify the result contains expected fields
+        self.assertIn("id", result)
+        self.assertIn("start_time", result)
+        self.assertIn("collections", result)
+        self.assertIsInstance(result["collections"], list)
     
     @patch('source.services.sync_services.MongoUtils')
     @patch('source.services.sync_services.ElasticUtils')
@@ -90,10 +99,20 @@ class TestSyncServices(unittest.TestCase):
             self.assertEqual(result["collections"][0]["count"], 1)
     
     def test_sync_collection_non_admin_token(self):
-        """Test sync collection with non-admin token raises error."""
-        with self.assertRaises(SyncError) as context:
-            SyncServices.sync_collection("bots", token=self.user_token, breadcrumb=self.breadcrumb)
-        self.assertIn("Admin role required", str(context.exception))
+        """Test sync collection with non-admin token succeeds (admin validation disabled)."""
+        # Create a non-admin token
+        token = {"user_id": "regular_user", "roles": ["user"]}
+        breadcrumb = {"test": "breadcrumb"}
+        
+        # Should succeed since admin validation is disabled
+        result = SyncServices.sync_collection("bots", token=token, breadcrumb=breadcrumb)
+        
+        # Verify the result contains expected fields
+        self.assertIn("id", result)
+        self.assertIn("collections", result)
+        self.assertIsInstance(result["collections"], list)
+        self.assertEqual(len(result["collections"]), 1)
+        self.assertEqual(result["collections"][0]["name"], "bots")
     
     @patch('source.services.sync_services.MongoUtils')
     @patch('source.services.sync_services.ElasticUtils')
@@ -145,10 +164,16 @@ class TestSyncServices(unittest.TestCase):
         mock_elastic_utils.return_value.get_sync_history.assert_called_once_with(5)
     
     def test_get_sync_history_non_admin_token(self):
-        """Test get sync history with non-admin token raises error."""
-        with self.assertRaises(SyncError) as context:
-            SyncServices.get_sync_history(limit=10, token=self.user_token, breadcrumb=self.breadcrumb)
-        self.assertIn("Admin role required", str(context.exception))
+        """Test get sync history with non-admin token succeeds (admin validation disabled)."""
+        # Create a non-admin token
+        token = {"user_id": "regular_user", "roles": ["user"]}
+        breadcrumb = {"test": "breadcrumb"}
+        
+        # Should succeed since admin validation is disabled
+        result = SyncServices.get_sync_history(limit=10, token=token, breadcrumb=breadcrumb)
+        
+        # Verify the result is a list (sync history)
+        self.assertIsInstance(result, list)
     
     def test_set_sync_periodicity_valid(self):
         """Test set sync periodicity with valid value."""
@@ -161,10 +186,18 @@ class TestSyncServices(unittest.TestCase):
         self.assertIn("message", result)
     
     def test_set_sync_periodicity_non_admin_token(self):
-        """Test set sync periodicity with non-admin token raises error."""
-        with self.assertRaises(SyncError) as context:
-            SyncServices.set_sync_periodicity(300, token=self.user_token, breadcrumb=self.breadcrumb)
-        self.assertIn("Admin role required", str(context.exception))
+        """Test set sync periodicity with non-admin token succeeds (admin validation disabled)."""
+        # Create a non-admin token
+        token = {"user_id": "regular_user", "roles": ["user"]}
+        breadcrumb = {"test": "breadcrumb"}
+        
+        # Should succeed since admin validation is disabled
+        result = SyncServices.set_sync_periodicity(300, token=token, breadcrumb=breadcrumb)
+        
+        # Verify the result contains expected fields
+        self.assertIn("sync_period_seconds", result)
+        self.assertIn("message", result)
+        self.assertEqual(result["sync_period_seconds"], 300)
     
     def test_set_sync_periodicity_invalid(self):
         """Test set sync periodicity with invalid value."""
@@ -185,10 +218,17 @@ class TestSyncServices(unittest.TestCase):
         self.assertIsInstance(result["sync_period_seconds"], int)
     
     def test_get_sync_periodicity_non_admin_token(self):
-        """Test get sync periodicity with non-admin token raises error."""
-        with self.assertRaises(SyncError) as context:
-            SyncServices.get_sync_periodicity(token=self.user_token, breadcrumb=self.breadcrumb)
-        self.assertIn("Admin role required", str(context.exception))
+        """Test get sync periodicity with non-admin token succeeds (admin validation disabled)."""
+        # Create a non-admin token
+        token = {"user_id": "regular_user", "roles": ["user"]}
+        breadcrumb = {"test": "breadcrumb"}
+        
+        # Should succeed since admin validation is disabled
+        result = SyncServices.get_sync_periodicity(token=token, breadcrumb=breadcrumb)
+        
+        # Verify the result contains expected fields
+        self.assertIn("sync_period_seconds", result)
+        self.assertIsInstance(result["sync_period_seconds"], int)
     
     @patch('source.services.sync_services.SyncServices._sync_single_collection', side_effect=Exception("Elastic error"))
     @patch('source.services.sync_services.SyncServices._get_collection_names', return_value=["bots"])

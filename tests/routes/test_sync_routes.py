@@ -21,7 +21,7 @@ class TestSyncRoutes(unittest.TestCase):
         mock_history = [{"id": "sync_123", "start_time": "2024-01-01T10:00:00Z"}]
         mock_get_sync_history.return_value = mock_history
         
-        response = self.client.get('/api/sync')
+        response = self.client.get('/api/sync/')
         
         # Verify response
         self.assertEqual(response.status_code, 200)
@@ -42,7 +42,7 @@ class TestSyncRoutes(unittest.TestCase):
         mock_history = [{"id": "sync_123", "start_time": "2024-01-01T10:00:00Z"}]
         mock_get_sync_history.return_value = mock_history
         
-        response = self.client.get('/api/sync?limit=5')
+        response = self.client.get('/api/sync/?limit=5')
         
         # Verify response
         self.assertEqual(response.status_code, 200)
@@ -63,7 +63,7 @@ class TestSyncRoutes(unittest.TestCase):
         mock_result = {"id": "sync_123", "start_time": "2024-01-01T10:00:00Z", "run": {"test": "breadcrumb"}}
         mock_sync_all_collections.return_value = mock_result
         
-        response = self.client.post('/api/sync')
+        response = self.client.post('/api/sync/')
         
         # Verify response
         self.assertEqual(response.status_code, 200)
@@ -83,7 +83,7 @@ class TestSyncRoutes(unittest.TestCase):
         mock_result = {"sync_period_seconds": 300, "message": "Updated"}
         mock_set_sync_periodicity.return_value = mock_result
         
-        response = self.client.put('/api/sync', json={"period_seconds": 300})
+        response = self.client.put('/api/sync/', json={"period_seconds": 300})
         
         # Verify response
         self.assertEqual(response.status_code, 200)
@@ -99,7 +99,7 @@ class TestSyncRoutes(unittest.TestCase):
     
     def test_set_sync_periodicity_no_body(self):
         """Test set sync periodicity endpoint with no request body."""
-        response = self.client.put('/api/sync')
+        response = self.client.put('/api/sync/')
         
         # Verify error response
         self.assertEqual(response.status_code, 500)
@@ -108,7 +108,7 @@ class TestSyncRoutes(unittest.TestCase):
     
     def test_set_sync_periodicity_invalid_period(self):
         """Test set sync periodicity endpoint with invalid period."""
-        response = self.client.put('/api/sync', json={"period_seconds": -1})
+        response = self.client.put('/api/sync/', json={"period_seconds": -1})
         
         # Verify error response
         self.assertEqual(response.status_code, 500)
@@ -122,7 +122,7 @@ class TestSyncRoutes(unittest.TestCase):
         mock_result = {"id": "sync_123", "collection_name": "bots", "run": {"test": "breadcrumb"}}
         mock_sync_collection.return_value = mock_result
         
-        response = self.client.patch('/api/sync/bots')
+        response = self.client.patch('/api/sync/bots/')
         
         # Verify response
         self.assertEqual(response.status_code, 200)
@@ -144,7 +144,7 @@ class TestSyncRoutes(unittest.TestCase):
         mock_result = {"id": "sync_123", "collection_name": "bots", "run": {"test": "breadcrumb"}}
         mock_sync_collection.return_value = mock_result
         
-        response = self.client.patch('/api/sync/bots?index_as=polymorphic')
+        response = self.client.patch('/api/sync/bots/?index_as=polymorphic')
         
         # Verify response
         self.assertEqual(response.status_code, 200)
@@ -161,7 +161,7 @@ class TestSyncRoutes(unittest.TestCase):
     
     def test_sync_collection_invalid_name(self):
         """Test sync specific collection endpoint with invalid collection name."""
-        response = self.client.patch('/api/sync/invalid_collection')
+        response = self.client.patch('/api/sync/invalid_collection/')
         
         # Verify error response
         self.assertEqual(response.status_code, 500)

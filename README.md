@@ -97,47 +97,39 @@ pipenv run down
 #### Search Documents
 ```bash
 # Simple text search
-curl -X GET "http://localhost:8083/api/search?search=test%20query" \
-  -H "Authorization: Bearer <token>"
+curl -X GET "http://localhost:8083/api/search/?search=test%20query"
 
 # Structured Elasticsearch query
-curl -X GET "http://localhost:8083/api/search?query=%7B%22match%22%3A%7B%22title%22%3A%22test%22%7D%7D" \
-  -H "Authorization: Bearer <token>"
+curl -X GET "http://localhost:8083/api/search/?query=%7B%22match%22%3A%7B%22title%22%3A%22test%22%7D%7D"
 ```
 
-### Synchronization Operations (Admin Only)
+### Synchronization Operations
 
 #### Sync All Collections
 ```bash
-curl -X POST "http://localhost:8083/api/sync/collections" \
-  -H "Authorization: Bearer <admin_token>"
+curl -X POST "http://localhost:8083/api/sync/"
 ```
 
 #### Sync Specific Collection
 ```bash
-curl -X POST "http://localhost:8083/api/sync/collections/bots" \
-  -H "Authorization: Bearer <admin_token>"
+curl -X PATCH "http://localhost:8083/api/sync/bots/"
 
 # With custom index name
-curl -X POST "http://localhost:8083/api/sync/collections/bots?index_as=custom_index" \
-  -H "Authorization: Bearer <admin_token>"
+curl -X PATCH "http://localhost:8083/api/sync/bots/?index_as=custom_index"
 ```
 
 #### Get Sync History
 ```bash
-curl -X GET "http://localhost:8083/api/sync/history?limit=10" \
-  -H "Authorization: Bearer <admin_token>"
+curl -X GET "http://localhost:8083/api/sync/?limit=10"
 ```
 
 #### Manage Sync Periodicity
 ```bash
 # Get current sync period
-curl -X GET "http://localhost:8083/api/sync/periodicity" \
-  -H "Authorization: Bearer <admin_token>"
+curl -X GET "http://localhost:8083/api/sync/periodicity"
 
 # Set sync period (in seconds)
-curl -X POST "http://localhost:8083/api/sync/periodicity" \
-  -H "Authorization: Bearer <admin_token>" \
+curl -X PUT "http://localhost:8083/api/sync/" \
   -H "Content-Type: application/json" \
   -d '{"period_seconds": 300}'
 ```

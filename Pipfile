@@ -6,7 +6,7 @@ name = "pypi"
 [packages]
 flask = "*"
 pymongo = "*"
-elasticsearch = "*"
+elasticsearch = ">=8.0.0,<9.0.0"
 stage0-py-utils = "*"
 prometheus-flask-exporter = "*"
 

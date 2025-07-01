@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 # Create Blueprint
 sync_bp = Blueprint('sync', __name__)
 
-@sync_bp.route('/sync', methods=['GET'])
+@sync_bp.route('/sync/', methods=['GET'])
 def get_sync_history():
     """Get synchronization history."""
     try:
@@ -22,7 +22,7 @@ def get_sync_history():
         logger.error(f"Sync history error: {str(e)}")
         return jsonify({}), 500
 
-@sync_bp.route('/sync', methods=['POST'])
+@sync_bp.route('/sync/', methods=['POST'])
 def sync_all_collections():
     """Perform one-time batch sync from MongoDB to Elasticsearch."""
     try:
@@ -35,7 +35,7 @@ def sync_all_collections():
         logger.error(f"Sync all collections error: {str(e)}")
         return jsonify({}), 500
 
-@sync_bp.route('/sync', methods=['PUT'])
+@sync_bp.route('/sync/', methods=['PUT'])
 def set_sync_periodicity():
     """Set batch sync periodicity."""
     try:
@@ -60,7 +60,7 @@ def set_sync_periodicity():
         logger.error(f"Set sync periodicity error: {str(e)}")
         return jsonify({}), 500
 
-@sync_bp.route('/sync/<collection_name>', methods=['PATCH'])
+@sync_bp.route('/sync/<collection_name>/', methods=['PATCH'])
 def sync_collection(collection_name):
     """Upsert index cards from a specific collection."""
     try:

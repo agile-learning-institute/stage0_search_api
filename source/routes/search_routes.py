@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 # Create Blueprint
 search_bp = Blueprint('search', __name__)
 
-@search_bp.route('/search', methods=['GET'])
+@search_bp.route('/search/', methods=['GET'])
 def search_documents():
     """Search documents using query or search parameters."""
     token = create_flask_token()

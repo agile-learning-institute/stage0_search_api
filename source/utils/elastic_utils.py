@@ -11,7 +11,12 @@ logger = logging.getLogger(__name__)
 class ElasticUtils:
     def __init__(self):
         self.config = Config.get_instance()
-        self.client = Elasticsearch(**self.config.ELASTIC_CLIENT_OPTIONS)
+        # Configure client options with version 8 compatibility header only
+        client_options = self.config.ELASTIC_CLIENT_OPTIONS.copy()
+        client_options['headers'] = {
+            'Accept': 'application/vnd.elasticsearch+json; compatible-with=8'
+        }
+        self.client = Elasticsearch(**client_options)
         self.search_index = self.config.ELASTIC_SEARCH_INDEX
         self.sync_index = self.config.ELASTIC_SYNC_INDEX
         
@@ -19,7 +24,11 @@ class ElasticUtils:
         """Initialize search and sync history indexes with proper mappings."""
         try:
             # Initialize search index
-            if not self.client.indices.exists(index=self.search_index):
+            try:
+                self.client.indices.get(index=self.search_index)
+                logger.info(f"Search index already exists: {self.search_index}")
+            except Exception:
+                # Index doesn't exist, create it
                 self.client.indices.create(
                     index=self.search_index,
                     body=self.config.ELASTIC_SEARCH_MAPPING
@@ -27,7 +36,11 @@ class ElasticUtils:
                 logger.info(f"Created search index: {self.search_index}")
             
             # Initialize sync history index
-            if not self.client.indices.exists(index=self.sync_index):
+            try:
+                self.client.indices.get(index=self.sync_index)
+                logger.info(f"Sync index already exists: {self.sync_index}")
+            except Exception:
+                # Index doesn't exist, create it
                 self.client.indices.create(
                     index=self.sync_index,
                     body=self.config.ELASTIC_SYNC_MAPPING

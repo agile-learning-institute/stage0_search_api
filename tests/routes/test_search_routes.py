@@ -25,7 +25,7 @@ class TestSearchRoutes(unittest.TestCase):
         query = {"match": {"title": "test"}}
         query_param = urllib.parse.quote(json.dumps(query))
         
-        response = self.client.get(f'/api/search?query={query_param}')
+        response = self.client.get(f'/api/search/?query={query_param}')
         
         # Verify response
         self.assertEqual(response.status_code, 200)
@@ -50,7 +50,7 @@ class TestSearchRoutes(unittest.TestCase):
         search_text = "test search"
         search_param = urllib.parse.quote(search_text)
         
-        response = self.client.get(f'/api/search?search={search_param}')
+        response = self.client.get(f'/api/search/?search={search_param}')
         
         # Verify response
         self.assertEqual(response.status_code, 200)
