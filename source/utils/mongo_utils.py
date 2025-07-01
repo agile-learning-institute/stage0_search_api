@@ -16,13 +16,7 @@ class MongoUtils:
         
     def get_collection_names(self) -> List[str]:
         """Get all collection names that should be synced."""
-        return [
-            self.config.BOT_COLLECTION_NAME,
-            self.config.CHAIN_COLLECTION_NAME,
-            self.config.CONVERSATION_COLLECTION_NAME,
-            self.config.WORKSHOP_COLLECTION_NAME,
-            self.config.EXERCISE_COLLECTION_NAME
-        ]
+        return self.config.MONGO_COLLECTION_NAMES
     
     def get_documents_since(self, collection_name: str, since_time: Optional[datetime] = None) -> Iterator[Dict]:
         """Get documents from a collection since a specific time."""
@@ -72,27 +66,16 @@ class MongoUtils:
             logger.error(f"Error getting related documents for {doc_id}: {e}")
             return {}
     
-    def create_index_card(self, collection_name: str, document: Dict, index_as: Optional[str] = None) -> Dict:
+    def create_index_card(self, collection_name: str, document: Dict) -> Dict:
         """Create an index card from a document."""
         try:
             # Base index card structure
             index_card = {
                 "collection_id": str(document.get("_id")),
-                "collection_name": index_as if index_as else collection_name,
+                "collection_name": collection_name,
                 "last_saved": document.get("last_saved", {}).get("atTime", datetime.now()).isoformat(),
                 collection_name: document
             }
-            
-            # If index_as is specified and different from collection_name, 
-            # this supports the extension pattern
-            if index_as and index_as != collection_name:
-                index_card["collection_name"] = index_as
-                
-                # Get related documents with same ID
-                related_docs = self.get_related_documents(str(document.get("_id")))
-                for related_collection, related_doc in related_docs.items():
-                    if related_doc:
-                        index_card[related_collection] = related_doc
             
             return index_card
             
@@ -101,7 +84,7 @@ class MongoUtils:
             return {}
     
     def process_collection_batch(self, collection_name: str, since_time: Optional[datetime] = None, 
-                               batch_size: int = 100, index_as: Optional[str] = None) -> List[Dict]:
+                               batch_size: int = 100) -> List[Dict]:
         """Process a batch of documents from a collection and convert to index cards."""
         try:
             documents = self.get_documents_since(collection_name, since_time)
@@ -111,7 +94,7 @@ class MongoUtils:
                 if i >= batch_size:
                     break
                     
-                index_card = self.create_index_card(collection_name, doc, index_as)
+                index_card = self.create_index_card(collection_name, doc)
                 if index_card:
                     index_cards.append(index_card)
             

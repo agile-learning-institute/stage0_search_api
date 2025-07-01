@@ -22,7 +22,8 @@ class TestSyncServices(unittest.TestCase):
     @patch('source.services.sync_services.MongoUtils')
     @patch('source.services.sync_services.ElasticUtils')
     @patch('source.services.sync_services.datetime')
-    def test_sync_all_collections(self, mock_datetime, mock_elastic_utils, mock_mongo_utils):
+    @patch('source.services.sync_services.Config')
+    def test_sync_all_collections(self, mock_config, mock_datetime, mock_elastic_utils, mock_mongo_utils):
         """Test sync all collections."""
         # Mock dependencies
         mock_datetime.now.side_effect = [
@@ -30,8 +31,10 @@ class TestSyncServices(unittest.TestCase):
             datetime(2024, 1, 1, 10, 2, 0)   # end_time
         ]
         
-        # Mock collection names and results
-        mock_mongo_utils.return_value.get_collection_names.return_value = ["bots", "chains"]
+        # Mock config to return specific collection names
+        mock_config_instance = Mock()
+        mock_config_instance.MONGO_COLLECTION_NAMES = ["bots", "chains"]
+        mock_config.get_instance.return_value = mock_config_instance
         
         # Mock collection results
         mock_collection_result_1 = {"name": "bots", "count": 1, "end_time": "2024-01-01T10:01:00Z"}
@@ -135,6 +138,52 @@ class TestSyncServices(unittest.TestCase):
             self.assertEqual(len(result["collections"]), 1)
             self.assertEqual(result["collections"][0]["name"], "bots")
             self.assertEqual(result["collections"][0]["count"], 0)
+    
+    @patch('source.services.sync_services.MongoUtils')
+    @patch('source.services.sync_services.ElasticUtils')
+    @patch('source.services.sync_services.SyncServices._save_sync_history')
+    def test_index_documents(self, mock_save_history, mock_elastic_utils, mock_mongo_utils):
+        """Test index documents function."""
+        # Mock dependencies
+        mock_documents = [
+            {"_id": "doc1", "name": "Test Doc 1"},
+            {"_id": "doc2", "name": "Test Doc 2"}
+        ]
+        
+        # Mock index card creation
+        mock_index_cards = [
+            {"collection_id": "doc1", "collection_name": "bots", "bots": {"_id": "doc1", "name": "Test Doc 1"}},
+            {"collection_id": "doc2", "collection_name": "bots", "bots": {"_id": "doc2", "name": "Test Doc 2"}}
+        ]
+        
+        mock_mongo_utils.return_value.create_index_card.side_effect = mock_index_cards
+        mock_elastic_utils.return_value.bulk_upsert_documents.return_value = {"success": 2, "failed": 0}
+        
+        # Test
+        result = SyncServices.index_documents("bots", mock_documents, token=self.admin_token, breadcrumb=self.breadcrumb)
+        
+        # Verify
+        self.assertIn("id", result)
+        self.assertIn("start_time", result)
+        self.assertIn("collections", result)
+        self.assertIn("run", result)
+        self.assertEqual(result["run"], self.breadcrumb)
+        self.assertEqual(len(result["collections"]), 1)
+        self.assertEqual(result["collections"][0]["name"], "bots")
+        self.assertEqual(result["collections"][0]["count"], 2)
+    
+    def test_index_documents_non_admin_token(self):
+        """Test index documents with non-admin token fails (admin validation enabled)."""
+        # Create a non-admin token
+        token = {"user_id": "regular_user", "roles": ["user"]}
+        breadcrumb = {"test": "breadcrumb"}
+        documents = [{"_id": "doc1", "name": "Test Doc"}]
+        
+        # Should fail since admin validation is enabled
+        with self.assertRaises(SyncError) as context:
+            SyncServices.index_documents("bots", documents, token=token, breadcrumb=breadcrumb)
+        
+        self.assertIn("Admin role required", str(context.exception))
     
     @patch('source.services.sync_services.ElasticUtils')
     def test_get_sync_history(self, mock_elastic_utils):

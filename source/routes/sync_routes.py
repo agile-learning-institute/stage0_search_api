@@ -1,7 +1,7 @@
 import logging
 from flask import Blueprint, request, jsonify
 from source.services.sync_services import SyncServices, SyncError
-from stage0_py_utils import create_flask_breadcrumb, create_flask_token
+from stage0_py_utils import create_flask_breadcrumb, create_flask_token, Config
 
 logger = logging.getLogger(__name__)
 
@@ -60,32 +60,58 @@ def set_sync_periodicity():
         logger.error(f"Set sync periodicity error: {str(e)}")
         return jsonify({}), 500
 
-@sync_bp.route('/sync/<collection_name>/', methods=['PATCH'])
+@sync_bp.route('/sync/<collection_name>/', methods=['POST'])
 def sync_collection(collection_name):
-    """Upsert index cards from a specific collection."""
+    """Sync a specific collection from MongoDB to Elasticsearch."""
     try:
         token = create_flask_token()
         breadcrumb = create_flask_breadcrumb(token)
         
-        # Get index_as parameter
-        index_as = request.args.get('index_as')
-        
         # Validate collection name
-        valid_collections = [
-            'bots', 'chains', 'conversations', 'workshops', 'exercises'
-        ]
-        if collection_name not in valid_collections:
+        config = Config.get_instance()
+        if collection_name not in config.MONGO_COLLECTION_NAMES:
             logger.warning(f"{breadcrumb} Invalid collection name: {collection_name}")
             return jsonify({}), 500
         
-        result = SyncServices.sync_collection(collection_name, token=token, breadcrumb=breadcrumb, index_as=index_as)
+        result = SyncServices.sync_collection(collection_name, token=token, breadcrumb=breadcrumb)
         logger.info(f"{breadcrumb} Successfully synced collection: {collection_name}")
         return jsonify(result)
     except Exception as e:
         logger.error(f"Sync collection error: {str(e)}")
         return jsonify({}), 500
 
-@sync_bp.route('/sync/periodicity', methods=['GET'])
+@sync_bp.route('/sync/<collection_name>/', methods=['PATCH'])
+def index_documents(collection_name):
+    """Index/upsert provided documents for a specific collection."""
+    try:
+        token = create_flask_token()
+        breadcrumb = create_flask_breadcrumb(token)
+        
+        # Validate collection name
+        config = Config.get_instance()
+        if collection_name not in config.MONGO_COLLECTION_NAMES:
+            logger.warning(f"{breadcrumb} Invalid collection name: {collection_name}")
+            return jsonify({}), 500
+        
+        # Get documents from request body
+        data = request.get_json()
+        if not data or 'documents' not in data:
+            logger.warning(f"{breadcrumb} Missing documents in request body")
+            return jsonify({}), 500
+        
+        documents = data['documents']
+        if not isinstance(documents, list):
+            logger.warning(f"{breadcrumb} Documents must be a list")
+            return jsonify({}), 500
+        
+        result = SyncServices.index_documents(collection_name, documents, token=token, breadcrumb=breadcrumb)
+        logger.info(f"{breadcrumb} Successfully indexed {len(documents)} documents for collection: {collection_name}")
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"Index documents error: {str(e)}")
+        return jsonify({}), 500
+
+@sync_bp.route('/sync/periodicity/', methods=['GET'])
 def get_sync_periodicity():
     """Get current sync periodicity."""
     try:

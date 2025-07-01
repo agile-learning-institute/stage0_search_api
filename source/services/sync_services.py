@@ -1,6 +1,6 @@
 import logging
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List
 
 from source.utils.elastic_utils import ElasticUtils
@@ -86,7 +86,7 @@ class SyncServices:
         return result
     
     @staticmethod
-    def sync_collection(collection_name: str, token: Dict, breadcrumb: Dict, index_as: str = None) -> Dict:
+    def sync_collection(collection_name: str, token: Dict, breadcrumb: Dict) -> Dict:
         """
         Sync a specific collection from MongoDB to Elasticsearch.
         
@@ -94,7 +94,6 @@ class SyncServices:
             collection_name: Name of the collection to sync.
             token: User token containing authentication and authorization information.
             breadcrumb: Request breadcrumb for logging and tracing.
-            index_as: Collection name to use for indexing (for polymorphic patterns).
             
         Returns:
             Dict containing sync results for the specific collection.
@@ -108,23 +107,81 @@ class SyncServices:
         start_time = datetime.now()
         sync_id = str(uuid.uuid4())
         
-        logger.info(f"{breadcrumb} Starting sync for collection {collection_name} (index_as: {index_as})")
+        logger.info(f"{breadcrumb} Starting sync for collection {collection_name}")
         
         # Get latest sync time
         latest_sync_time = SyncServices._get_latest_sync_time()
         
         # Process collection
         collection_result = SyncServices._sync_single_collection(
-            collection_name, latest_sync_time, index_as
+            collection_name, latest_sync_time
         )
         
         # Save sync history and return results
         SyncServices._save_sync_history(sync_id, start_time, [collection_result])
         result = SyncServices._build_collection_sync_result(
-            sync_id, collection_name, index_as, start_time, collection_result["count"], breadcrumb
+            sync_id, collection_name, start_time, collection_result["count"], breadcrumb
         )
         
         logger.info(f"{breadcrumb} Collection sync completed: {collection_result['count']} documents")
+        return result
+    
+    @staticmethod
+    def index_documents(collection_name: str, documents: List[Dict], token: Dict, breadcrumb: Dict) -> Dict:
+        """
+        Index/upsert provided documents for a specific collection.
+        
+        Args:
+            collection_name: Name of the collection the documents belong to.
+            documents: List of documents to index.
+            token: User token containing authentication and authorization information.
+            breadcrumb: Request breadcrumb for logging and tracing.
+            
+        Returns:
+            Dict containing indexing results.
+            
+        Raises:
+            SyncError: If indexing operation fails.
+        """
+        # Validate admin access
+        SyncServices._validate_admin_access(token, breadcrumb)
+        
+        start_time = datetime.now()
+        sync_id = str(uuid.uuid4())
+        
+        logger.info(f"{breadcrumb} Starting document indexing for collection {collection_name}: {len(documents)} documents")
+        
+        # Convert documents to index cards
+        index_cards = []
+        for document in documents:
+            index_card = MongoUtils().create_index_card(collection_name, document)
+            if index_card:
+                index_cards.append(index_card)
+        
+        # Index documents in batches
+        total_indexed = 0
+        batch_size = Config.get_instance().SYNC_BATCH_SIZE
+        
+        for i in range(0, len(index_cards), batch_size):
+            batch = index_cards[i:i + batch_size]
+            result = ElasticUtils().bulk_upsert_documents(batch)
+            total_indexed += result["success"]
+            logger.info(f"{breadcrumb} Batch {i//batch_size + 1}: {result['success']} indexed, {result['failed']} failed")
+        
+        # Build result
+        collection_result = {
+            "name": collection_name,
+            "count": total_indexed,
+            "end_time": datetime.now().isoformat()
+        }
+        
+        # Save sync history and return results
+        SyncServices._save_sync_history(sync_id, start_time, [collection_result])
+        result = SyncServices._build_collection_sync_result(
+            sync_id, collection_name, start_time, total_indexed, breadcrumb
+        )
+        
+        logger.info(f"{breadcrumb} Document indexing completed: {total_indexed} documents")
         return result
     
     @staticmethod
@@ -210,27 +267,27 @@ class SyncServices:
     
     @staticmethod
     def _get_latest_sync_time():
-        """Get the latest sync time from Elasticsearch."""
-        return ElasticUtils().get_latest_sync_time()
+        """Get the latest sync time from Elasticsearch, or beginning of time if no sync history."""
+        latest_time = ElasticUtils().get_latest_sync_time()
+        if latest_time is None:
+            # Return beginning of time if no sync history exists
+            return datetime(1970, 1, 1, tzinfo=timezone.utc)
+        return latest_time
     
     @staticmethod
     def _get_collection_names():
-        """Get list of collection names to sync."""
-        return MongoUtils().get_collection_names()
+        """Get list of collection names to sync from config."""
+        config = Config.get_instance()
+        return config.MONGO_COLLECTION_NAMES
     
     @staticmethod
-    def _sync_single_collection(
-        collection_name: str, 
-        since_time, 
-        index_as: str = None
-    ) -> Dict:
+    def _sync_single_collection(collection_name: str, since_time) -> Dict:
         """
         Sync a single collection in batches.
         
         Args:
             collection_name: Name of the collection to sync.
             since_time: Time to sync from (for incremental sync).
-            index_as: Collection name for indexing.
             
         Returns:
             Dict containing sync results for the collection.
@@ -240,26 +297,35 @@ class SyncServices:
         total_synced = 0
         
         while True:
-            # Get batch of index cards
-            index_cards = MongoUtils().process_collection_batch(
-                collection_name=collection_name,
-                since_time=since_time,
-                batch_size=config.SYNC_BATCH_SIZE,
-                index_as=index_as
-            )
+            # Get batch of documents from MongoDB
+            documents = MongoUtils().get_documents_since(collection_name, since_time)
+            batch_documents = []
             
-            if not index_cards:
+            # Collect batch_size documents
+            for i, doc in enumerate(documents):
+                if i >= config.SYNC_BATCH_SIZE:
+                    break
+                batch_documents.append(doc)
+            
+            if not batch_documents:
                 break
             
-            # Bulk upsert to Elasticsearch
-            result = ElasticUtils().bulk_upsert_documents(index_cards)
-            total_synced += result["success"]
+            # Convert documents to index cards
+            index_cards = []
+            for document in batch_documents:
+                index_card = MongoUtils().create_index_card(collection_name, document)
+                if index_card:
+                    index_cards.append(index_card)
             
-            batch_count += 1
-            logger.info(f"Batch {batch_count}: {result['success']} synced, {result['failed']} failed")
+            # Index the batch
+            if index_cards:
+                result = ElasticUtils().bulk_upsert_documents(index_cards)
+                total_synced += result["success"]
+                batch_count += 1
+                logger.info(f"Batch {batch_count}: {result['success']} synced, {result['failed']} failed")
             
             # If we got fewer documents than batch size, we're done
-            if len(index_cards) < config.SYNC_BATCH_SIZE:
+            if len(batch_documents) < config.SYNC_BATCH_SIZE:
                 break
         
         return {
@@ -293,7 +359,6 @@ class SyncServices:
     def _build_collection_sync_result(
         sync_id: str, 
         collection_name: str, 
-        index_as: str, 
         start_time: datetime, 
         total_synced: int,
         breadcrumb: Dict
