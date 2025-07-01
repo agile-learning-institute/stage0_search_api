@@ -891,12 +891,12 @@
         },
         "stage0-py-utils": {
             "hashes": [
-                "sha256:8ed4339058a086ef1774c09556dafcf2547e9af948efefc087823c4d0310dae0",
-                "sha256:e2a6f49ddfd6ed5e00bb259cc7e518020264c11d8eb21dfdbb00d207e0cca5fd"
+                "sha256:189fafd1674ad83376bb69a755f12c310c1db62407a0ba0af7cce067fd49b5b9",
+                "sha256:906600dae23cde8d5420bc4b6065bd7ce31b9ce9b53abf63bde16e306ac34222"
             ],
             "index": "pypi",
             "markers": "python_version >= '3.8'",
-            "version": "==0.2.9"
+            "version": "==0.2.11"
         },
         "typing-extensions": {
             "hashes": [
