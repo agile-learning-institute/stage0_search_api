@@ -12,13 +12,36 @@ sync_bp = Blueprint('sync', __name__)
 
 @sync_bp.route('/sync/', methods=['GET'])
 def get_sync_history():
-    """Get synchronization history."""
+    """Get synchronization history with pagination support."""
     try:
         token = create_flask_token()
         breadcrumb = create_flask_breadcrumb(token)
-        limit = request.args.get('limit', 10, type=int)
-        history = SyncServices.get_sync_history(limit=limit, token=token, breadcrumb=breadcrumb)
-        logger.info(f"{breadcrumb} Successfully retrieved sync history")
+        config = Config.get_instance()
+        
+        # Get pagination parameters
+        page = request.args.get('page', 1, type=int)
+        page_size = request.args.get('page_size', config.PAGE_SIZE, type=int)
+        limit = request.args.get('limit', None, type=int)  # Legacy parameter for backward compatibility
+        
+        # Validate pagination parameters
+        if page < 1:
+            logger.warning(f"{breadcrumb} Invalid page parameter: {page}")
+            return jsonify({}), 400
+        
+        if page_size < 1 or page_size > 100:
+            logger.warning(f"{breadcrumb} Invalid page_size parameter: {page_size}")
+            return jsonify({}), 400
+        
+        # Use limit parameter if provided (backward compatibility), otherwise use page_size
+        effective_page_size = limit if limit is not None else page_size
+        
+        history = SyncServices.get_sync_history(
+            page=page, 
+            page_size=effective_page_size, 
+            token=token, 
+            breadcrumb=breadcrumb
+        )
+        logger.info(f"{breadcrumb} Successfully retrieved sync history page {page} with {effective_page_size} items")
         return jsonify(history)
     except Exception as e:
         logger.error(f"Sync history error: {str(e)}")

@@ -16,18 +16,21 @@ class SearchServices:
     
     @staticmethod
     def search_documents(query_param: str = None, search_param: str = None, 
-                        token: Dict = None, breadcrumb: Dict = None) -> List[Dict]:
+                        page: int = 1, page_size: int = 10,
+                        token: Dict = None, breadcrumb: Dict = None) -> Dict:
         """
-        Search documents using either query or search parameters.
+        Search documents using either query or search parameters with pagination support.
         
         Args:
             query_param: URL-encoded JSON Elasticsearch query.
             search_param: Simple text search parameter.
+            page: Page number (1-based).
+            page_size: Number of items per page.
             token: User token containing authentication and authorization information.
             breadcrumb: Request breadcrumb for logging and tracing.
             
         Returns:
-            List of search results from Elasticsearch.
+            Dict containing paginated search results with metadata.
             
         Raises:
             SearchError: If no search parameters are provided or search fails.
@@ -42,13 +45,13 @@ class SearchServices:
         # Placeholder for token-based filtering
         query, search_text = SearchServices._apply_token_based_filtering(query, search_text, token, breadcrumb)
         
-        # Perform search
-        results = SearchServices._execute_search(query, search_text)
+        # Perform search with pagination
+        results = SearchServices._execute_search_paginated(query, search_text, page, page_size)
         
         # Placeholder for token-based prioritization
-        results = SearchServices._apply_token_based_prioritization(results, token, breadcrumb)
+        results["items"] = SearchServices._apply_token_based_prioritization(results["items"], token, breadcrumb)
         
-        logger.info(f"{breadcrumb} Search returned {len(results)} results")
+        logger.info(f"{breadcrumb} Search returned {len(results['items'])} results on page {page}")
         return results
     
     # Private helper methods
@@ -91,7 +94,7 @@ class SearchServices:
     @staticmethod
     def _execute_search(query: Dict, search_text: str) -> List[Dict]:
         """
-        Execute search against Elasticsearch.
+        Execute search against Elasticsearch (legacy method for backward compatibility).
         
         Args:
             query: Parsed Elasticsearch query.
@@ -102,6 +105,28 @@ class SearchServices:
         """
         elastic_utils = ElasticUtils()
         return elastic_utils.search_documents(query=query, search_text=search_text)
+
+    @staticmethod
+    def _execute_search_paginated(query: Dict, search_text: str, page: int, page_size: int) -> Dict:
+        """
+        Execute paginated search against Elasticsearch.
+        
+        Args:
+            query: Parsed Elasticsearch query.
+            search_text: Simple text search.
+            page: Page number (1-based).
+            page_size: Number of items per page.
+            
+        Returns:
+            Dict containing paginated search results with metadata.
+        """
+        elastic_utils = ElasticUtils()
+        return elastic_utils.search_documents_paginated(
+            query=query, 
+            search_text=search_text, 
+            page=page, 
+            page_size=page_size
+        )
 
     @staticmethod
     def _apply_token_based_filtering(query: Dict, search_text: str, token: Dict, breadcrumb: Dict) -> tuple:

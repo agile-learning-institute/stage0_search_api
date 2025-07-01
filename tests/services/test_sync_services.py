@@ -2,6 +2,7 @@ import unittest
 from unittest.mock import Mock, patch
 from datetime import datetime
 from source.services.sync_services import SyncServices, SyncError
+from stage0_py_utils import Config
 
 class TestSyncServices(unittest.TestCase):
     
@@ -187,23 +188,94 @@ class TestSyncServices(unittest.TestCase):
     
     @patch('source.services.sync_services.ElasticUtils')
     def test_get_sync_history(self, mock_elastic_utils):
-        """Test get sync history."""
-        # Mock elastic utils response
-        mock_history = [
+        """Test get sync history with pagination."""
+        page_size = Config.get_instance().PAGE_SIZE
+        total_items = 25
+        expected_total_pages = (total_items + page_size - 1) // page_size  # Ceiling division
+        
+        mock_history_items = [
             {
                 "id": "sync_123",
-                "start_time": "2024-01-01T10:00:00Z",
+                "started_at": "2024-01-01T10:00:00Z",
                 "collections": [{"name": "bots", "count": 150}]
             }
         ]
-        mock_elastic_utils.return_value.get_sync_history.return_value = mock_history
+        mock_elastic_utils.return_value.get_sync_history_count.return_value = total_items
+        mock_elastic_utils.return_value.get_sync_history_paginated.return_value = mock_history_items
         
         # Test
-        result = SyncServices.get_sync_history(limit=5, token=self.admin_token, breadcrumb=self.breadcrumb)
+        result = SyncServices.get_sync_history(page=1, page_size=page_size, token=self.admin_token, breadcrumb=self.breadcrumb)
         
         # Verify
-        self.assertEqual(result, mock_history)
-        mock_elastic_utils.return_value.get_sync_history.assert_called_once_with(5)
+        self.assertIn("items", result)
+        self.assertIn("pagination", result)
+        self.assertEqual(result["items"], mock_history_items)
+        self.assertEqual(result["pagination"]["page"], 1)
+        self.assertEqual(result["pagination"]["page_size"], page_size)
+        self.assertEqual(result["pagination"]["total_items"], total_items)
+        self.assertEqual(result["pagination"]["total_pages"], expected_total_pages)
+        self.assertEqual(result["pagination"]["has_next"], expected_total_pages > 1)
+        self.assertFalse(result["pagination"]["has_previous"])
+
+    @patch('source.services.sync_services.ElasticUtils')
+    def test_get_sync_history_page_2(self, mock_elastic_utils):
+        """Test get sync history page 2."""
+        page_size = Config.get_instance().PAGE_SIZE
+        total_items = 25
+        expected_total_pages = (total_items + page_size - 1) // page_size  # Ceiling division
+        
+        mock_history_items = [
+            {
+                "id": "sync_124",
+                "started_at": "2024-01-01T09:00:00Z",
+                "collections": [{"name": "chains", "count": 75}]
+            }
+        ]
+        mock_elastic_utils.return_value.get_sync_history_count.return_value = total_items
+        mock_elastic_utils.return_value.get_sync_history_paginated.return_value = mock_history_items
+        
+        # Test
+        result = SyncServices.get_sync_history(page=2, page_size=page_size, token=self.admin_token, breadcrumb=self.breadcrumb)
+        
+        # Verify
+        self.assertIn("items", result)
+        self.assertIn("pagination", result)
+        self.assertEqual(result["pagination"]["page"], 2)
+        self.assertEqual(result["pagination"]["page_size"], page_size)
+        self.assertEqual(result["pagination"]["total_items"], total_items)
+        self.assertEqual(result["pagination"]["total_pages"], expected_total_pages)
+        self.assertEqual(result["pagination"]["has_next"], 2 < expected_total_pages)
+        self.assertTrue(result["pagination"]["has_previous"])
+
+    @patch('source.services.sync_services.ElasticUtils')
+    def test_get_sync_history_last_page(self, mock_elastic_utils):
+        """Test get sync history last page."""
+        page_size = Config.get_instance().PAGE_SIZE
+        total_items = 25
+        expected_total_pages = (total_items + page_size - 1) // page_size  # Ceiling division
+        
+        mock_history_items = [
+            {
+                "id": "sync_125",
+                "started_at": "2024-01-01T08:00:00Z",
+                "collections": [{"name": "users", "count": 25}]
+            }
+        ]
+        mock_elastic_utils.return_value.get_sync_history_count.return_value = total_items
+        mock_elastic_utils.return_value.get_sync_history_paginated.return_value = mock_history_items
+        
+        # Test
+        result = SyncServices.get_sync_history(page=expected_total_pages, page_size=page_size, token=self.admin_token, breadcrumb=self.breadcrumb)
+        
+        # Verify
+        self.assertIn("items", result)
+        self.assertIn("pagination", result)
+        self.assertEqual(result["pagination"]["page"], expected_total_pages)
+        self.assertEqual(result["pagination"]["page_size"], page_size)
+        self.assertEqual(result["pagination"]["total_items"], total_items)
+        self.assertEqual(result["pagination"]["total_pages"], expected_total_pages)
+        self.assertFalse(result["pagination"]["has_next"])
+        self.assertEqual(result["pagination"]["has_previous"], expected_total_pages > 1)
     
     def test_get_sync_history_non_admin_token(self):
         """Test get sync history with non-admin token fails (admin validation enabled)."""
@@ -213,7 +285,7 @@ class TestSyncServices(unittest.TestCase):
         
         # Should fail since admin validation is enabled
         with self.assertRaises(SyncError) as context:
-            SyncServices.get_sync_history(limit=10, token=token, breadcrumb=breadcrumb)
+            SyncServices.get_sync_history(page=1, page_size=10, token=token, breadcrumb=breadcrumb)
         
         self.assertIn("Admin role required", str(context.exception))
     

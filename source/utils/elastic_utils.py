@@ -54,7 +54,7 @@ class ElasticUtils:
             raise
     
     def search_documents(self, query: Optional[Dict] = None, search_text: Optional[str] = None) -> List[Dict]:
-        """Search documents in the search index."""
+        """Search documents in the search index (legacy method for backward compatibility)."""
         try:
             if query:
                 # Use provided Elasticsearch query
@@ -82,6 +82,63 @@ class ElasticUtils:
             
         except Exception as e:
             logger.error(f"Error searching documents: {e}")
+            raise
+    
+    def search_documents_paginated(self, query: Optional[Dict] = None, search_text: Optional[str] = None, 
+                                 page: int = 1, page_size: int = 10) -> Dict:
+        """Search documents in the search index with pagination support."""
+        try:
+            # Calculate offset
+            offset = (page - 1) * page_size
+            
+            if query:
+                # Use provided Elasticsearch query
+                search_body = query
+            elif search_text:
+                # Simple full text search across all fields
+                search_body = {
+                    "query": {
+                        "multi_match": {
+                            "query": search_text,
+                            "fields": ["*"]
+                        }
+                    }
+                }
+            else:
+                # Return all documents
+                search_body = {"query": {"match_all": {}}}
+            
+            # Add pagination parameters
+            search_body["from"] = offset
+            search_body["size"] = page_size
+            
+            response = self.client.search(
+                index=self.search_index,
+                body=search_body
+            )
+            
+            # Extract results and metadata
+            hits = response["hits"]
+            total_hits = hits["total"]["value"] if isinstance(hits["total"], dict) else hits["total"]
+            total_pages = (total_hits + page_size - 1) // page_size  # Ceiling division
+            
+            results = [hit["_source"] for hit in hits["hits"]]
+            
+            # Build paginated response
+            return {
+                "items": results,
+                "pagination": {
+                    "page": page,
+                    "page_size": page_size,
+                    "total_items": total_hits,
+                    "total_pages": total_pages,
+                    "has_next": page < total_pages,
+                    "has_previous": page > 1
+                }
+            }
+            
+        except Exception as e:
+            logger.error(f"Error searching documents with pagination: {e}")
             raise
     
     def upsert_document(self, doc_id: str, document: Dict, index_as: Optional[str] = None) -> bool:
@@ -161,7 +218,7 @@ class ElasticUtils:
             return False
     
     def get_sync_history(self, limit: int = 10) -> List[Dict]:
-        """Get recent sync history from the sync index."""
+        """Get recent sync history from the sync index (legacy method for backward compatibility)."""
         try:
             response = self.client.search(
                 index=self.sync_index,
@@ -176,6 +233,39 @@ class ElasticUtils:
             
         except Exception as e:
             logger.error(f"Error getting sync history: {e}")
+            return []
+    
+    def get_sync_history_count(self) -> int:
+        """Get total count of sync history entries."""
+        try:
+            response = self.client.count(
+                index=self.sync_index,
+                body={"query": {"match_all": {}}}
+            )
+            
+            return response["count"]
+            
+        except Exception as e:
+            logger.error(f"Error getting sync history count: {e}")
+            return 0
+    
+    def get_sync_history_paginated(self, offset: int, size: int) -> List[Dict]:
+        """Get paginated sync history from the sync index, sorted newest first."""
+        try:
+            response = self.client.search(
+                index=self.sync_index,
+                body={
+                    "query": {"match_all": {}},
+                    "sort": [{"started_at": {"order": "desc"}}],
+                    "from": offset,
+                    "size": size
+                }
+            )
+            
+            return [hit["_source"] for hit in response["hits"]["hits"]]
+            
+        except Exception as e:
+            logger.error(f"Error getting paginated sync history: {e}")
             return []
     
     def get_latest_sync_time(self) -> Optional[datetime]:

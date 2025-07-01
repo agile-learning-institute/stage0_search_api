@@ -4,6 +4,7 @@ from unittest.mock import Mock, patch
 import urllib.parse
 
 from source.services.search_services import SearchServices, SearchError
+from stage0_py_utils import Config
 
 class TestSearchServices(unittest.TestCase):
     
@@ -19,9 +20,19 @@ class TestSearchServices(unittest.TestCase):
     @patch('source.services.search_services.ElasticUtils')
     def test_search_documents_with_query(self, mock_elastic_utils):
         """Test search documents with query parameter."""
-        # Mock elastic utils response
-        mock_results = [{"id": "doc1", "title": "Test Document"}]
-        mock_elastic_utils.return_value.search_documents.return_value = mock_results
+        page_size = Config.get_instance().PAGE_SIZE
+        mock_results = {
+            "items": [{"id": "doc1", "title": "Test Document"}],
+            "pagination": {
+                "page": 1,
+                "page_size": page_size,
+                "total_items": 1,
+                "total_pages": 1,
+                "has_next": False,
+                "has_previous": False
+            }
+        }
+        mock_elastic_utils.return_value.search_documents_paginated.return_value = mock_results
         
         # Test with query parameter
         query = {"query": {"match": {"title": "test"}}}
@@ -29,22 +40,36 @@ class TestSearchServices(unittest.TestCase):
         
         result = SearchServices.search_documents(
             query_param=query_param,
+            page=1,
+            page_size=page_size,
             token=self.token,
             breadcrumb=self.breadcrumb
         )
         
         # Verify
-        self.assertEqual(result, mock_results)
-        mock_elastic_utils.return_value.search_documents.assert_called_once_with(
-            query=query, search_text=None
+        self.assertIn("items", result)
+        self.assertIn("pagination", result)
+        self.assertEqual(result["items"], mock_results["items"])
+        mock_elastic_utils.return_value.search_documents_paginated.assert_called_once_with(
+            query=query, search_text=None, page=1, page_size=page_size
         )
 
     @patch('source.services.search_services.ElasticUtils')
     def test_search_documents_with_search_text(self, mock_elastic_utils):
         """Test search documents with search parameter."""
-        # Mock elastic utils response
-        mock_results = [{"id": "doc1", "title": "Test Document"}]
-        mock_elastic_utils.return_value.search_documents.return_value = mock_results
+        page_size = Config.get_instance().PAGE_SIZE
+        mock_results = {
+            "items": [{"id": "doc1", "title": "Test Document"}],
+            "pagination": {
+                "page": 1,
+                "page_size": page_size,
+                "total_items": 1,
+                "total_pages": 1,
+                "has_next": False,
+                "has_previous": False
+            }
+        }
+        mock_elastic_utils.return_value.search_documents_paginated.return_value = mock_results
         
         # Test with search parameter
         search_text = "test search"
@@ -52,15 +77,153 @@ class TestSearchServices(unittest.TestCase):
         
         result = SearchServices.search_documents(
             search_param=search_param,
+            page=1,
+            page_size=page_size,
             token=self.token,
             breadcrumb=self.breadcrumb
         )
         
         # Verify
-        self.assertEqual(result, mock_results)
-        mock_elastic_utils.return_value.search_documents.assert_called_once_with(
-            query=None, search_text=search_text
+        self.assertIn("items", result)
+        self.assertIn("pagination", result)
+        self.assertEqual(result["items"], mock_results["items"])
+        mock_elastic_utils.return_value.search_documents_paginated.assert_called_once_with(
+            query=None, search_text=search_text, page=1, page_size=page_size
         )
+
+    @patch('source.services.search_services.ElasticUtils')
+    def test_search_documents_with_pagination(self, mock_elastic_utils):
+        """Test search documents with pagination parameters."""
+        # Mock elastic utils response
+        mock_results = {
+            "items": [{"id": "doc2", "title": "Test Document 2"}],
+            "pagination": {
+                "page": 2,
+                "page_size": 5,
+                "total_items": 25,
+                "total_pages": 5,
+                "has_next": True,
+                "has_previous": True
+            }
+        }
+        mock_elastic_utils.return_value.search_documents_paginated.return_value = mock_results
+        
+        # Test with pagination parameters
+        result = SearchServices.search_documents(
+            search_param="test",
+            page=2,
+            page_size=5,
+            token=self.token,
+            breadcrumb=self.breadcrumb
+        )
+        
+        # Verify
+        self.assertIn("items", result)
+        self.assertIn("pagination", result)
+        self.assertEqual(result["pagination"]["page"], 2)
+        self.assertEqual(result["pagination"]["page_size"], 5)
+        self.assertEqual(result["pagination"]["total_items"], 25)
+        self.assertEqual(result["pagination"]["total_pages"], 5)
+        self.assertTrue(result["pagination"]["has_next"])
+        self.assertTrue(result["pagination"]["has_previous"])
+
+    @patch('source.services.search_services.ElasticUtils')
+    def test_search_documents_elastic_error(self, mock_elastic_utils):
+        """Test search documents when Elasticsearch raises error."""
+        # Mock elastic utils to raise exception
+        mock_elastic_utils.return_value.search_documents_paginated.side_effect = Exception("Elasticsearch error")
+        
+        # Test
+        with self.assertRaises(Exception) as context:
+            SearchServices.search_documents(
+                search_param="test",
+                page=1,
+                page_size=10,
+                token=self.token,
+                breadcrumb=self.breadcrumb
+            )
+        self.assertEqual(str(context.exception), "Elasticsearch error")
+
+    def test_search_documents_with_token_and_breadcrumb(self):
+        """Test search documents with token and breadcrumb parameters."""
+        with patch.object(SearchServices, '_execute_search_paginated') as mock_execute:
+            mock_execute.return_value = {
+                "items": [{"id": "doc1"}],
+                "pagination": {
+                    "page": 1,
+                    "page_size": 10,
+                    "total_items": 1,
+                    "total_pages": 1,
+                    "has_next": False,
+                    "has_previous": False
+                }
+            }
+            
+            result = SearchServices.search_documents(
+                search_param="test",
+                page=1,
+                page_size=10,
+                token=self.token,
+                breadcrumb=self.breadcrumb
+            )
+            
+            self.assertIn("items", result)
+            self.assertIn("pagination", result)
+            self.assertEqual(result["items"], [{"id": "doc1"}])
+
+    def test_search_documents_with_token_no_breadcrumb(self):
+        """Test search documents with token but no breadcrumb."""
+        with patch.object(SearchServices, '_execute_search_paginated') as mock_execute:
+            mock_execute.return_value = {
+                "items": [{"id": "doc1"}],
+                "pagination": {
+                    "page": 1,
+                    "page_size": 10,
+                    "total_items": 1,
+                    "total_pages": 1,
+                    "has_next": False,
+                    "has_previous": False
+                }
+            }
+            
+            result = SearchServices.search_documents(
+                search_param="test",
+                page=1,
+                page_size=10,
+                token=self.token,
+                breadcrumb=None
+            )
+            
+            self.assertIn("items", result)
+            self.assertIn("pagination", result)
+            self.assertEqual(result["items"], [{"id": "doc1"}])
+
+    def test_search_documents_with_breadcrumb_no_token(self):
+        """Test search documents with breadcrumb but no token."""
+        with patch.object(SearchServices, '_execute_search_paginated') as mock_execute:
+            mock_execute.return_value = {
+                "items": [{"id": "doc1"}],
+                "pagination": {
+                    "page": 1,
+                    "page_size": 10,
+                    "total_items": 1,
+                    "total_pages": 1,
+                    "has_next": False,
+                    "has_previous": False
+                }
+            }
+            
+            result = SearchServices.search_documents(
+                search_param="test",
+                page=1,
+                page_size=10,
+                token=None,
+                breadcrumb=self.breadcrumb
+            )
+            
+            self.assertIn("items", result)
+            self.assertIn("pagination", result)
+            self.assertEqual(result["items"], [{"id": "doc1"}])
 
     def test_search_documents_no_parameters(self):
         """Test search documents with no parameters raises error."""
@@ -79,60 +242,6 @@ class TestSearchServices(unittest.TestCase):
                 breadcrumb=self.breadcrumb
             )
         self.assertIn("Invalid query parameter format", str(context.exception))
-
-    @patch('source.services.search_services.ElasticUtils')
-    def test_search_documents_elastic_error(self, mock_elastic_utils):
-        """Test search documents when Elasticsearch raises error."""
-        # Mock elastic utils to raise exception
-        mock_elastic_utils.return_value.search_documents.side_effect = Exception("Elasticsearch error")
-        
-        # Test
-        with self.assertRaises(Exception) as context:
-            SearchServices.search_documents(
-                search_param="test",
-                token=self.token,
-                breadcrumb=self.breadcrumb
-            )
-        self.assertEqual(str(context.exception), "Elasticsearch error")
-
-    def test_search_documents_with_token_and_breadcrumb(self):
-        """Test search documents with token and breadcrumb parameters."""
-        with patch.object(SearchServices, '_execute_search') as mock_execute:
-            mock_execute.return_value = [{"id": "doc1"}]
-            
-            result = SearchServices.search_documents(
-                search_param="test",
-                token=self.token,
-                breadcrumb=self.breadcrumb
-            )
-            
-            self.assertEqual(result, [{"id": "doc1"}])
-
-    def test_search_documents_with_token_no_breadcrumb(self):
-        """Test search documents with token but no breadcrumb."""
-        with patch.object(SearchServices, '_execute_search') as mock_execute:
-            mock_execute.return_value = [{"id": "doc1"}]
-            
-            result = SearchServices.search_documents(
-                search_param="test",
-                token=self.token,
-                breadcrumb=None
-            )
-            
-            self.assertEqual(result, [{"id": "doc1"}])
-
-    def test_search_documents_with_breadcrumb_no_token(self):
-        """Test search documents with breadcrumb but no token."""
-        with patch.object(SearchServices, '_execute_search') as mock_execute:
-            mock_execute.return_value = [{"id": "doc1"}]
-            
-            result = SearchServices.search_documents(
-                search_param="test",
-                token=None,
-                breadcrumb=self.breadcrumb
-            )
-            
-            self.assertEqual(result, [{"id": "doc1"}])
 
 if __name__ == '__main__':
     unittest.main() 
