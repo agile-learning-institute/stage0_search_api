@@ -185,17 +185,18 @@ class SyncServices:
         return result
     
     @staticmethod
-    def get_sync_history(limit: int, token: Dict, breadcrumb: Dict) -> List[Dict]:
+    def get_sync_history(page: int = 1, page_size: int = 10, token: Dict = None, breadcrumb: Dict = None) -> Dict:
         """
-        Get sync history from Elasticsearch.
+        Get sync history from Elasticsearch with pagination support.
         
         Args:
-            limit: Maximum number of history entries to return.
+            page: Page number (1-based).
+            page_size: Number of items per page.
             token: User token containing authentication and authorization information.
             breadcrumb: Request breadcrumb for logging and tracing.
             
         Returns:
-            List of sync history entries.
+            Dict containing paginated sync history entries with metadata.
             
         Raises:
             SyncError: If operation fails.
@@ -203,8 +204,32 @@ class SyncServices:
         # Validate admin access
         SyncServices._validate_admin_access(token, breadcrumb)
         
-        logger.info(f"{breadcrumb} Getting sync history with limit: {limit}")
-        return ElasticUtils().get_sync_history(limit)
+        logger.info(f"{breadcrumb} Getting sync history page {page} with page_size {page_size}")
+        
+        # Get total count first
+        total_count = ElasticUtils().get_sync_history_count()
+        
+        # Calculate pagination parameters
+        offset = (page - 1) * page_size
+        total_pages = (total_count + page_size - 1) // page_size  # Ceiling division
+        
+        # Get paginated results
+        history_items = ElasticUtils().get_sync_history_paginated(offset, page_size)
+        
+        # Build paginated response
+        response = {
+            "items": history_items,
+            "pagination": {
+                "page": page,
+                "page_size": page_size,
+                "total_items": total_count,
+                "total_pages": total_pages,
+                "has_next": page < total_pages,
+                "has_previous": page > 1
+            }
+        }
+        
+        return response
     
     @staticmethod
     def set_sync_periodicity(period_seconds: int, token: Dict, breadcrumb: Dict) -> Dict:
