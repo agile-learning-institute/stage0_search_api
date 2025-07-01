@@ -29,9 +29,10 @@ class ElasticUtils:
                 logger.info(f"Search index already exists: {self.search_index}")
             except Exception:
                 # Index doesn't exist, create it
+                mapping_body = {"mappings": self.config.ELASTIC_SEARCH_MAPPING}
                 self.client.indices.create(
                     index=self.search_index,
-                    body=self.config.ELASTIC_SEARCH_MAPPING
+                    body=mapping_body
                 )
                 logger.info(f"Created search index: {self.search_index}")
             
@@ -41,9 +42,10 @@ class ElasticUtils:
                 logger.info(f"Sync index already exists: {self.sync_index}")
             except Exception:
                 # Index doesn't exist, create it
+                mapping_body = {"mappings": self.config.ELASTIC_SYNC_MAPPING}
                 self.client.indices.create(
                     index=self.sync_index,
-                    body=self.config.ELASTIC_SYNC_MAPPING
+                    body=mapping_body
                 )
                 logger.info(f"Created sync history index: {self.sync_index}")
                 
