@@ -122,10 +122,18 @@ class ElasticUtils:
             failed_count = len(response["items"]) - success_count
             
             logger.info(f"Bulk upsert completed: {success_count} successful, {failed_count} failed")
+            
+            # Log any errors
+            if failed_count > 0:
+                for i, item in enumerate(response["items"]):
+                    if item["index"]["status"] not in [200, 201]:
+                        logger.error(f"Bulk operation {i} failed: {item['index']}")
+            
             return {"success": success_count, "failed": failed_count}
             
         except Exception as e:
             logger.error(f"Error in bulk upsert: {e}")
+            logger.error(f"Documents that failed: {documents}")
             return {"success": 0, "failed": len(documents)}
     
     def save_sync_history(self, sync_id: str, start_time: datetime, collections: List[Dict]) -> bool:

@@ -61,9 +61,9 @@ class TestSyncRoutes(unittest.TestCase):
 
     @patch('source.services.sync_services.SyncServices.sync_collection')
     def test_sync_collection(self, mock_sync_collection):
-        mock_result = {"id": "sync_123", "collection_name": "bots", "run": {"test": "breadcrumb"}}
+        mock_result = {"id": "sync_123", "collection_name": "bot", "run": {"test": "breadcrumb"}}
         mock_sync_collection.return_value = mock_result
-        response = self.client.post('/api/sync/bots/')
+        response = self.client.post('/api/sync/bot/')
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.get_json(), mock_result)
 
@@ -74,10 +74,10 @@ class TestSyncRoutes(unittest.TestCase):
 
     @patch('source.services.sync_services.SyncServices.index_documents')
     def test_index_documents(self, mock_index_documents):
-        mock_result = {"id": "sync_123", "collections": [{"name": "bots", "count": 2}]}
+        mock_result = {"id": "sync_123", "collections": [{"name": "bot", "count": 2}]}
         mock_index_documents.return_value = mock_result
         response = self.client.patch(
-            '/api/sync/bots/',
+            '/api/sync/bot/',
             data=json.dumps({"documents": [{"_id": "doc1"}, {"_id": "doc2"}]}),
             content_type='application/json'
         )

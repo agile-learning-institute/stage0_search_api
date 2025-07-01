@@ -276,14 +276,15 @@ class SyncServices:
     
     @staticmethod
     def _get_collection_names():
-        """Get list of collection names to sync from config."""
+        """Get list of collection names to sync from database."""
+        # Use the collection names from config
         config = Config.get_instance()
         return config.MONGO_COLLECTION_NAMES
     
     @staticmethod
     def _sync_single_collection(collection_name: str, since_time) -> Dict:
         """
-        Sync a single collection in batches.
+        Sync a single collection using cursor-based streaming with batching.
         
         Args:
             collection_name: Name of the collection to sync.
@@ -292,41 +293,32 @@ class SyncServices:
         Returns:
             Dict containing sync results for the collection.
         """
-        config = Config.get_instance()
-        batch_count = 0
-        total_synced = 0
+        # Get cursor for all documents from the collection
+        cursor = MongoUtils().get_all_documents(collection_name)
         
-        while True:
-            # Get batch of documents from MongoDB
-            documents = MongoUtils().get_documents_since(collection_name, since_time)
-            batch_documents = []
+        # Process documents in batches using cursor streaming
+        index_cards = []
+        total_synced = 0
+        batch_size = Config.get_instance().SYNC_BATCH_SIZE
+        
+        for document in cursor:
+            # Create index card for this document
+            index_card = MongoUtils().create_index_card(collection_name, document)
+            if index_card:
+                index_cards.append(index_card)
             
-            # Collect batch_size documents
-            for i, doc in enumerate(documents):
-                if i >= config.SYNC_BATCH_SIZE:
-                    break
-                batch_documents.append(doc)
-            
-            if not batch_documents:
-                break
-            
-            # Convert documents to index cards
-            index_cards = []
-            for document in batch_documents:
-                index_card = MongoUtils().create_index_card(collection_name, document)
-                if index_card:
-                    index_cards.append(index_card)
-            
-            # Index the batch
-            if index_cards:
+            # When we reach batch size, index the batch
+            if len(index_cards) >= batch_size:
                 result = ElasticUtils().bulk_upsert_documents(index_cards)
                 total_synced += result["success"]
-                batch_count += 1
-                logger.info(f"Batch {batch_count}: {result['success']} synced, {result['failed']} failed")
-            
-            # If we got fewer documents than batch size, we're done
-            if len(batch_documents) < config.SYNC_BATCH_SIZE:
-                break
+                logger.info(f"Collection {collection_name} batch: {result['success']} synced, {result['failed']} failed")
+                index_cards = []  # Reset for next batch
+        
+        # Index any remaining documents in the final batch
+        if index_cards:
+            result = ElasticUtils().bulk_upsert_documents(index_cards)
+            total_synced += result["success"]
+            logger.info(f"Collection {collection_name} final batch: {result['success']} synced, {result['failed']} failed")
         
         return {
             "name": collection_name,

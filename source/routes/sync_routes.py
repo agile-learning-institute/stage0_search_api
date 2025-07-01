@@ -1,6 +1,8 @@
 import logging
 from flask import Blueprint, request, jsonify
 from source.services.sync_services import SyncServices, SyncError
+from source.utils.mongo_utils import MongoUtils
+from source.utils.elastic_utils import ElasticUtils
 from stage0_py_utils import create_flask_breadcrumb, create_flask_token, Config
 
 logger = logging.getLogger(__name__)
@@ -21,6 +23,8 @@ def get_sync_history():
     except Exception as e:
         logger.error(f"Sync history error: {str(e)}")
         return jsonify({}), 500
+
+
 
 @sync_bp.route('/sync/', methods=['POST'])
 def sync_all_collections():
@@ -67,7 +71,7 @@ def sync_collection(collection_name):
         token = create_flask_token()
         breadcrumb = create_flask_breadcrumb(token)
         
-        # Validate collection name
+        # Validate collection name against the config
         config = Config.get_instance()
         if collection_name not in config.MONGO_COLLECTION_NAMES:
             logger.warning(f"{breadcrumb} Invalid collection name: {collection_name}")
@@ -87,7 +91,7 @@ def index_documents(collection_name):
         token = create_flask_token()
         breadcrumb = create_flask_breadcrumb(token)
         
-        # Validate collection name
+        # Validate collection name against the config
         config = Config.get_instance()
         if collection_name not in config.MONGO_COLLECTION_NAMES:
             logger.warning(f"{breadcrumb} Invalid collection name: {collection_name}")

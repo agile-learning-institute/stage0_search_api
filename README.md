@@ -10,6 +10,7 @@ A Flask-based REST API service for searching and synchronizing data between Mong
 - **Token Authentication**: Secure token-based authentication with breadcrumb tracing
 - **Observability**: Comprehensive logging and monitoring support
 
+
 ## Architecture
 
 ### Application Structure
@@ -96,7 +97,7 @@ pipenv run down
 
 #### Search Documents
 ```bash
-# Simple text search
+# Simple text search (use 'search' parameter, not 'q')
 curl -X GET "http://localhost:8083/api/search/?search=test%20query"
 
 # Structured Elasticsearch query
@@ -112,10 +113,10 @@ curl -X POST "http://localhost:8083/api/sync/"
 
 #### Sync Specific Collection
 ```bash
-curl -X PATCH "http://localhost:8083/api/sync/bots/"
-
-# With custom index name
-curl -X PATCH "http://localhost:8083/api/sync/bots/?index_as=custom_index"
+# Sync a specific collection (uses singular collection names)
+curl -X POST "http://localhost:8083/api/sync/bot/"
+curl -X POST "http://localhost:8083/api/sync/conversation/"
+curl -X POST "http://localhost:8083/api/sync/workshop/"
 ```
 
 #### Get Sync History
@@ -133,6 +134,22 @@ curl -X PUT "http://localhost:8083/api/sync/" \
   -H "Content-Type: application/json" \
   -d '{"period_seconds": 300}'
 ```
+
+
+
+## Supported Collections
+
+The API synchronizes the following MongoDB collections to Elasticsearch:
+
+- **bot** - Bot configurations and personalities
+- **chain** - Workflow chains
+- **conversation** - Conversation data and chat history
+- **execution** - Execution tracking data
+- **exercise** - Design thinking exercises
+- **runbook** - Operational runbooks
+- **template** - Template definitions
+- **user** - User data
+- **workshop** - Workshop configurations
 
 ## Testing
 
@@ -169,6 +186,17 @@ The service uses the `stage0_py_utils` configuration system. Key configuration i
 - `ELASTIC_SYNC_INDEX` - Sync history index name
 - `SEARCH_API_PORT` - API server port (default: 8083)
 - `LOGGING_LEVEL` - Logging verbosity
+- `MONGO_COLLECTION_NAMES` - List of collections to sync (managed by stage0_py_utils)
+
+## Recent Updates
+
+### v0.2.9
+- ✅ **Fixed MongoDB to Elasticsearch synchronization** - All collections now sync successfully
+- ✅ **Updated to use stage0_py_utils v0.2.9** - Uses centralized configuration
+- ✅ **Fixed ObjectId and datetime serialization** - Documents now index properly
+
+- ✅ **Updated collection names** - Now uses singular names (bot, conversation, etc.)
+- ✅ **Removed unnecessary packaging files** - Cleaner project structure
 
 ## Error Handling
 
