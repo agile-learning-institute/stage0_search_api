@@ -1,5 +1,5 @@
 # Multi-stage build for stage0_search_api
-FROM python:3.11-slim as builder
+FROM python:3.11-slim AS builder
 
 # Set working directory
 WORKDIR /app
