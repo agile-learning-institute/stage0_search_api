@@ -22,9 +22,26 @@ logger.info(f"============= Starting Server Initialization ===============")
 
 # Initialize versions and enumerators from MongoDB
 from pymongo import ASCENDING
+
+# Debug: Check what we're querying and what we get back
+logger.info(f"Querying VERSION_COLLECTION_NAME: '{config.VERSION_COLLECTION_NAME}'")
+logger.info(f"Querying ENUMERATORS_COLLECTION_NAME: '{config.ENUMERATORS_COLLECTION_NAME}'")
+
 config.versions = mongo.get_documents(config.VERSION_COLLECTION_NAME, sort_by=[("collection_name", ASCENDING)])
+logger.info(f"Versions query result: {len(config.versions)} documents")
+if config.versions:
+    logger.info(f"First version: {config.versions[0]}")
+else:
+    logger.warning("No versions found - collection may be empty or not exist")
+
 config.enumerators = mongo.get_documents(config.ENUMERATORS_COLLECTION_NAME, sort_by=[("version", ASCENDING)])
-logger.info(f"Loaded {len(config.versions)} versions and {len(config.enumerators)} enumerators from MongoDB")
+logger.info(f"Enumerators query result: {len(config.enumerators)} documents")
+if config.enumerators:
+    logger.info(f"First enumerator: {config.enumerators[0]}")
+else:
+    logger.warning("No enumerators found - collection may be empty or not exist")
+
+logger.info(f"Final result: {len(config.versions)} versions and {len(config.enumerators)} enumerators loaded from MongoDB")
 
 # Define a signal handler for SIGTERM and SIGINT
 def handle_exit(signum, frame):
