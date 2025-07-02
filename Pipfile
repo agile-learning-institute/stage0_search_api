@@ -18,8 +18,8 @@ flake8 = "*"
 elasticsearch = "*"
 
 [scripts]
-local = "python source/server.py"
-debug = "export LOGGING_LEVEL=DEBUG && python source/server.py"
+local = "PYTHONPATH=. python source/server.py"
+debug = "export LOGGING_LEVEL=DEBUG && PYTHONPATH=. python source/server.py"
 test = "python -m pytest tests/ -v --cov=source --cov-report=html"
 stepci = "stepci run tests/stepci/search_api.yaml"
 build = "docker build -t ghcr.io/agile-learning-institute/stage0_search_api:latest ."
