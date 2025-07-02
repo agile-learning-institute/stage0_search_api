@@ -15,7 +15,7 @@ def handle_exit(signum, frame):
 signal.signal(signal.SIGTERM, handle_exit)
 signal.signal(signal.SIGINT, handle_exit)
 
-# === Initialize Config and MongoIO ===
+# === Initialize Config and MongoIO (connect to MongoDB) ===
 from stage0_py_utils import Config, MongoIO, MongoJSONEncoder, create_config_routes
 config = Config.get_instance()
 mongo = MongoIO.get_instance()
@@ -29,46 +29,32 @@ logger.info(f"============= Starting Server Initialization ===============")
 from pymongo import ASCENDING
 config.versions = mongo.get_documents(config.VERSION_COLLECTION_NAME, sort_by=[("collection_name", ASCENDING)])
 config.enumerators = mongo.get_documents(config.ENUMERATORS_COLLECTION_NAME, sort_by=[("version", ASCENDING)])
-logger.info(f"Loaded {len(config.versions)} versions and {len(config.enumerators)} from MongoDB")
+logger.info(f"Loaded {len(config.versions)} versions and {len(config.enumerators)} enumerators from MongoDB")
 
 # Initialize Flask App
 app = Flask(__name__)
 app.json = MongoJSONEncoder(app)
-
-# Configure Flask to be strict about trailing slashes
 app.url_map.strict_slashes = False
 
-# Initialize Elasticsearch indexes with error handling
-try:
-    from source.utils.elastic_utils import ElasticUtils
-    elastic_utils = ElasticUtils()
-    elastic_utils.initialize_indexes()
-    logger.info("Elasticsearch indexes initialized successfully")
-except Exception as e:
-    logger.error(f"Failed to initialize Elasticsearch indexes: {e}")
-    sys.exit(1)
+# Initialize Elasticsearch indexes
+from source.utils.elastic_utils import ElasticUtils
+elastic_utils = ElasticUtils()
+elastic_utils.initialize_indexes()
+logger.info("Elasticsearch indexes initialized successfully")
 
 # Apply Prometheus monitoring middleware
-try:
-    metrics = PrometheusMetrics(app, path='/api/health')
-    metrics.info('app_info', 'Application info', version=config.BUILT_AT)
-    logger.info("Prometheus metrics initialized successfully")
-except Exception as e:
-    logger.error(f"Failed to initialize Prometheus metrics: {e}")
-    sys.exit(1)
+metrics = PrometheusMetrics(app, path='/api/health')
+metrics.info('app_info', 'Application info', version=config.BUILT_AT)
+logger.info("Prometheus metrics initialized successfully")
 
-# Register flask routes with error handling
-try:
-    from source.routes.search_routes import search_bp
-    from source.routes.sync_routes import sync_bp
+# Register flask routes 
+from source.routes.search_routes import search_bp
+from source.routes.sync_routes import sync_bp
 
-    app.register_blueprint(create_config_routes(), url_prefix='/api/config')
-    app.register_blueprint(search_bp, url_prefix='/api')
-    app.register_blueprint(sync_bp, url_prefix='/api')
-    logger.info(f"============= Routes Registered ===============")
-except Exception as e:
-    logger.error(f"Failed to register routes: {e}")
-    sys.exit(1)
+app.register_blueprint(create_config_routes(), url_prefix='/api/config')
+app.register_blueprint(search_bp, url_prefix='/api')
+app.register_blueprint(sync_bp, url_prefix='/api')
+logger.info(f"============= Routes Registered ===============")
 
 # Start the server (only when run directly, not when imported by Gunicorn)
 if __name__ == "__main__":
