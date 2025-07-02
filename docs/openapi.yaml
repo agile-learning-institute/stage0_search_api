@@ -26,6 +26,7 @@ paths:
         Search documents using either a simple text search or a complex Elasticsearch query.
         - Use `search` parameter for simple text search across all fields
         - Use `query` parameter for complex Elasticsearch queries (URL-encoded JSON)
+        - Supports pagination with `page` and `page_size` parameters
       tags:
         - Search
       parameters:
@@ -43,22 +44,65 @@ paths:
           schema:
             type: string
             example: "%7B%22query%22%3A%7B%22match%22%3A%7B%22collection_name%22%3A%22bots%22%7D%7D%7D"
+        - name: page
+          in: query
+          description: Page number (1-based)
+          required: false
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+            example: 1
+        - name: page_size
+          in: query
+          description: Number of items per page
+          required: false
+          schema:
+            type: integer
+            default: 10
+            minimum: 1
+            maximum: 100
+            example: 10
       responses:
         '200':
-          description: Search results
+          description: Search results with pagination
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  type: object
-                  additionalProperties: true
-                  example:
-                    collection_id: "123"
-                    collection_name: "bots"
-                    bots:
-                      name: "Test Bot"
-                      description: "A test bot"
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                      example:
+                        collection_id: "123"
+                        collection_name: "bots"
+                        bots:
+                          name: "Test Bot"
+                          description: "A test bot"
+                  pagination:
+                    type: object
+                    properties:
+                      page:
+                        type: integer
+                        example: 1
+                      page_size:
+                        type: integer
+                        example: 10
+                      total_items:
+                        type: integer
+                        example: 150
+                      total_pages:
+                        type: integer
+                        example: 15
+                      has_next:
+                        type: boolean
+                        example: true
+                      has_previous:
+                        type: boolean
+                        example: false
         '400':
           description: Bad request - missing parameters or invalid query format
           content:
@@ -91,13 +135,35 @@ paths:
   /api/sync/:
     get:
       summary: Get sync history
-      description: Retrieve synchronization history from Elasticsearch
+      description: |
+        Retrieve synchronization history from Elasticsearch with pagination support.
+        - Use `page` and `page_size` for pagination
+        - Legacy `limit` parameter supported for backward compatibility
       tags:
         - Sync
       parameters:
+        - name: page
+          in: query
+          description: Page number (1-based)
+          required: false
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+            example: 1
+        - name: page_size
+          in: query
+          description: Number of items per page
+          required: false
+          schema:
+            type: integer
+            default: 10
+            minimum: 1
+            maximum: 100
+            example: 10
         - name: limit
           in: query
-          description: Maximum number of history entries to return
+          description: Maximum number of history entries to return (legacy parameter)
           required: false
           schema:
             type: integer
@@ -107,13 +173,37 @@ paths:
             example: 10
       responses:
         '200':
-          description: Sync history
+          description: Sync history with pagination
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/sync_result'
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/sync_result'
+                  pagination:
+                    type: object
+                    properties:
+                      page:
+                        type: integer
+                        example: 1
+                      page_size:
+                        type: integer
+                        example: 10
+                      total_items:
+                        type: integer
+                        example: 25
+                      total_pages:
+                        type: integer
+                        example: 3
+                      has_next:
+                        type: boolean
+                        example: true
+                      has_previous:
+                        type: boolean
+                        example: false
         '500':
           description: Internal server error
           content:
