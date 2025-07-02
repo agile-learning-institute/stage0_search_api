@@ -10,19 +10,21 @@ from prometheus_flask_exporter import PrometheusMetrics
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-# Initialize Logging first
+# === Initialize Config and MongoIO ===
+from stage0_py_utils import Config, MongoIO, MongoJSONEncoder, create_config_routes
+config = Config.get_instance()
+mongo = MongoIO.get_instance()
+
+# === Set up logging ===
 import logging
 logger = logging.getLogger(__name__)
 logger.info(f"============= Starting Server Initialization ===============")
 
-# Initialize Config with error handling
-try:
-    from stage0_py_utils import Config, MongoJSONEncoder, create_config_routes
-    config = Config.get_instance()
-    logger.info("Configuration initialized successfully")
-except Exception as e:
-    logger.error(f"Failed to initialize configuration: {e}")
-    sys.exit(1)
+# Initialize versions and enumerators from MongoDB
+from pymongo import ASCENDING
+config.versions = mongo.get_documents(config.VERSION_COLLECTION_NAME, sort_by=[("collection_name", ASCENDING)])
+config.enumerators = mongo.get_documents(config.ENUMERATORS_COLLECTION_NAME, sort_by=[("version", ASCENDING)])
+logger.info(f"Loaded {len(config.versions)} versions and {len(config.enumerators)} enumerators from MongoDB")
 
 # Define a signal handler for SIGTERM and SIGINT
 def handle_exit(signum, frame):
